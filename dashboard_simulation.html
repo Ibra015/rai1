@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/plant_data.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
@@ -548,18 +549,7 @@
         }
 
         // --- DATA ---
-        const plants = [
-            { n: "Tomato", a: "طماطم", m: 45, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_je.jpg/150px-Tomato_je.jpg" },
-            { n: "Cucumber", a: "خيار", m: 72, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Cucumber_Kiwano.jpg/150px-Cucumber_Kiwano.jpg" },
-            { n: "Arugula", a: "جرجير", m: 80, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Arugula.jpg/150px-Arugula.jpg" },
-            { n: "Carrot", a: "جزر", m: 35, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Carrot_s.jpg/150px-Carrot_s.jpg" },
-            { n: "Lettuce", a: "خس", m: 60, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Iceberg_lettuce_in_SB.jpg/150px-Iceberg_lettuce_in_SB.jpg" },
-            { n: "Pepper", a: "فلفل", m: 55, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Pepper_Bell.jpg/150px-Pepper_Bell.jpg" },
-            { n: "Spinach", a: "سبانخ", m: 85, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Spinacia_oleracea_Spinat_Bl%C3%BCte_2.jpg/150px-Spinacia_oleracea_Spinat_Bl%C3%BCte_2.jpg" },
-            { n: "Beans", a: "فاصوليا", m: 20, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Green_beans.jpg/150px-Green_beans.jpg" },
-            { n: "Peas", a: "بازلاء", m: 90, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Erbsen_Unbekannte_Sorte.jpg/150px-Erbsen_Unbekannte_Sorte.jpg" },
-            { n: "Cabbage", a: "كرنب", m: 50, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Cabbage_and_cross_section_on_white.jpg/150px-Cabbage_and_cross_section_on_white.jpg" }
-        ];
+        // Loaded from js/plant_data.js
 
         // --- POPULATE ZONES ---
         const box = document.getElementById('zBox');
