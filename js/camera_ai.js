@@ -102,8 +102,8 @@ async function loadAI() {
     if (!isRunning) return;
     aiStatus.innerText = "Loading AI Model...";
 
-    // Load COCO-SSD (Objects)
-    model = await cocoSsd.load();
+    // Load MobileNet (Classification)
+    model = await mobilenet.load();
     if (isRunning) {
         aiStatus.innerHTML = "AI Active <span style='color:var(--success)'>●</span>";
         detectFrame();
@@ -114,32 +114,28 @@ async function loadAI() {
 async function detectFrame() {
     if (!model || !isRunning) return;
 
-    // Detect objects
-    const predictions = await model.detect(video);
+    // Classify Frame
+    const predictions = await model.classify(video);
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     resizeCanvas();
 
-    // Draw boxes
-    predictions.forEach(prediction => {
-        const [x, y, width, height] = prediction.bbox;
-        const text = prediction.class;
+    // Display Top Prediction
+    if (predictions && predictions.length > 0) {
+        const top = predictions[0];
+        const text = `${top.className.split(',')[0]} (${Math.round(top.probability * 100)}%)`;
 
-        // Draw Box
-        ctx.strokeStyle = '#00FFFF';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, width, height);
-
-        // Draw Label Background
-        ctx.fillStyle = '#00FFFF';
-        ctx.fillRect(x, y - 20, width, 20);
+        // Draw Text Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(10, canvas.height - 50, canvas.width - 20, 40);
 
         // Draw Text
-        ctx.fillStyle = '#000000';
-        ctx.font = 'bold 12px Arial';
-        ctx.fillText(`${text} (${Math.round(prediction.score * 100)}%)`, x + 5, y - 5);
-    });
+        ctx.fillStyle = '#00FFFF'; // Cyan
+        ctx.font = 'bold 20px Cairo, Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height - 23);
+    }
 
     // Loop
     if (isRunning) {
