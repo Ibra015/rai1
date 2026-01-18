@@ -11,6 +11,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="js/plant_data.js"></script>
     <script src="js/weather.js"></script>
+    <!-- TF.js & COCO-SSD -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="js/camera_ai.js" defer></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
@@ -452,13 +456,26 @@
             <!-- CAMERA + WEATHER (MERGED ROW) -->
             <div class="grid-split">
                 <!-- CAMERA -->
-                <div class="cam-container">
-                    <img src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1000"
-                        class="cam-feed">
-                    <div class="rec-tag"><span style="animation:blink 1s infinite">●</span> LIVE FEED</div>
+                <!-- CAMERA -->
+                <div class="cam-container" style="position:relative;">
+                    <video id="camVideo" class="cam-feed" playsinline muted
+                        style="width:100%; height:100%; object-fit:cover;"></video>
+                    <canvas id="camCanvas"
+                        style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></canvas>
+
+                    <!-- Start Button Overlay -->
+                    <div id="camOverlay"
+                        style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:20;">
+                        <button onclick="initCameraAI()"
+                            style="padding:15px 30px; background:var(--primary); color:white; border:none; border-radius:50px; font-weight:bold; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; gap:10px;">
+                            <span class="material-icons-round">videocam</span> تشغيل الكاميرا
+                        </button>
+                    </div>
+
+                    <div class="rec-tag"><span style="animation:blink 1s infinite">●</span> LIVE CAM</div>
                     <div
                         style="position:absolute; bottom:15px; right:15px; background:rgba(0,0,0,0.7); padding:10px; border-radius:8px; color:white; font-size:0.8rem;">
-                        AI Status: <span style="color:var(--success)">Scanning...</span>
+                        Status: <span id="aiStatusText" style="color:var(--warning)">Initializing Cam...</span>
                     </div>
                 </div>
 
