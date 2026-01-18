@@ -1,3 +1,5 @@
+// ===== إصلاح جميع المشاكل في camera_ai.js =====
+
 let video = null;
 let canvas = null;
 let ctx = null;
@@ -5,6 +7,12 @@ let model = null;
 let aiStatus = null;
 let stream = null;
 let isRunning = false;
+let allowDebug = false; // ✅ إضافة المتغير الناقص
+
+// تاريخ التوقعات للاستقرار
+let history = [];
+const HISTORY_SIZE = 15;
+const CONFIDENCE_THRESHOLD = 0.60;
 
 async function initCameraAI() {
     video = document.getElementById('camVideo');
@@ -12,9 +20,12 @@ async function initCameraAI() {
     aiStatus = document.getElementById('aiStatusText');
     const overlay = document.getElementById('camOverlay');
 
-    if (!video || !canvas) return;
+    if (!video || !canvas) {
+        console.error('عناصر الكاميرا غير موجودة في الصفحة');
+        return;
+    }
 
-    // Stop if already running
+    // إيقاف الكاميرا إذا كانت تعمل
     if (isRunning) {
         stopCamera();
         return;
@@ -22,16 +33,16 @@ async function initCameraAI() {
 
     ctx = canvas.getContext('2d');
 
-    // 1. Start Camera
+    // 1. تشغيل الكاميرا
     try {
         try {
-            // Try back camera first
+            // محاولة استخدام الكاميرا الخلفية أولاً
             stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment' },
                 audio: false
             });
         } catch (e) {
-            // Fallback to any camera
+            // استخدام أي كاميرا متاحة
             stream = await navigator.mediaDevices.getUserMedia({
                 video: true,
                 audio: false
@@ -41,10 +52,10 @@ async function initCameraAI() {
         video.srcObject = stream;
         isRunning = true;
 
-        // Hide overlay on success
+        // إخفاء شاشة البداية
         if (overlay) overlay.style.display = 'none';
 
-        // Show Stop Button (Dynamically update UI if needed, but here we just toggle state)
+        // تحديث واجهة المستخدم
         updateCamUI(true);
 
         video.onloadedmetadata = () => {
@@ -53,10 +64,12 @@ async function initCameraAI() {
             loadAI();
         };
     } catch (err) {
-        console.error("Camera denied:", err);
-        aiStatus.innerHTML = `Error: ${err.name || err.message}`;
-        aiStatus.style.color = "red";
-        alert("Camera Error: " + (err.name || err));
+        console.error("خطأ في الكاميرا:", err);
+        if (aiStatus) {
+            aiStatus.innerHTML = `خطأ: ${err.name || err.message}`;
+            aiStatus.style.color = "red";
+        }
+        alert("خطأ في الكاميرا: " + (err.name || err.message));
     }
 }
 
@@ -64,13 +77,16 @@ function stopCamera() {
     if (stream) {
         stream.getTracks().forEach(track => track.stop());
     }
-    video.srcObject = null;
+    if (video) video.srcObject = null;
     isRunning = false;
+    history = []; // ✅ مسح التاريخ عند الإيقاف
     updateCamUI(false);
 
-    // Clear canvas
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (aiStatus) aiStatus.innerHTML = "Camera Stopped";
+    // مسح الرسم على الكانفس
+    if (ctx && canvas) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    if (aiStatus) aiStatus.innerHTML = "الكاميرا متوقفة";
 }
 
 function updateCamUI(active) {
@@ -83,10 +99,6 @@ function updateCamUI(active) {
     } else {
         if (overlay) overlay.style.display = 'flex';
         if (stopBtn) stopBtn.style.display = 'none';
-
-        // Reset Video Poster or Black Screen
-        const vid = document.getElementById('camVideo');
-        if (vid) vid.srcObject = null;
     }
 }
 
@@ -97,208 +109,257 @@ function resizeCanvas() {
     }
 }
 
-// 2. Load AI Model
+// 2. تحميل نموذج الذكاء الاصطناعي
 async function loadAI() {
     if (!isRunning) return;
-    aiStatus.innerText = "Loading AI Model...";
 
-    // Load MobileNet (Classification)
-    model = await mobilenet.load();
-    if (isRunning) {
-        aiStatus.innerHTML = "AI Active <span style='color:var(--success)'>●</span>";
-        detectFrame();
+    if (aiStatus) aiStatus.innerText = "جاري تحميل النموذج...";
+
+    try {
+        // تحميل MobileNet
+        model = await mobilenet.load();
+
+        if (isRunning && aiStatus) {
+            aiStatus.innerHTML = "الذكاء الاصطناعي نشط <span style='color:var(--success)'>●</span>";
+            detectFrame();
+        }
+    } catch (error) {
+        console.error("خطأ في تحميل النموذج:", error);
+        if (aiStatus) {
+            aiStatus.innerHTML = "فشل تحميل النموذج";
+            aiStatus.style.color = "red";
+        }
     }
 }
 
-// 3. Detection Loop
-// 3. Detection Loop & Smoothing
-// 3. Detection Loop & Smoothing with Agro-Brain
-let history = [];
-const HISTORY_SIZE = 15;
-const CONFIDENCE_THRESHOLD = 0.60;
-
+// 3. حلقة الكشف مع التحسينات
 async function detectFrame() {
-    if (!model || !isRunning) return;
+    if (!model || !isRunning || !video || !ctx) return;
 
-    // Classify
-    const predictions = await model.classify(video);
+    try {
+        // التصنيف
+        const predictions = await model.classify(video);
 
-    // Clear & Resize
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    resizeCanvas();
+        // مسح ومعايرة الكانفس
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        resizeCanvas();
 
-    if (predictions && predictions.length > 0) {
-        let finalPred = predictions[0];
+        if (predictions && predictions.length > 0) {
+            let finalPred = predictions[0];
 
-        // --- AGRO-BRAIN LOGIC START ---
-        try {
-            if (ctx && video.readyState === 4) { // Ensure video is ready
-                const colorData = analyzeColor();
-                finalPred = smartCorrect(predictions[0], colorData);
-            }
-        } catch (e) {
-            console.warn("Agro-Brain Skipped Frame:", e);
-            // Fallback to raw prediction if Brain fails
-        }
-        // --- AGRO-BRAIN LOGIC END ---
-
-        // Add to history
-        history.push(finalPred);
-        if (history.length > HISTORY_SIZE) history.shift();
-
-        // Stability Vote
-        const counts = {};
-        history.forEach(p => {
-            const name = p.name || p.className.split(',')[0]; // Handle raw vs corrected
-            counts[name] = (counts[name] || 0) + 1;
-        });
-
-        let bestCandidate = null;
-        let maxCount = 0;
-        for (const [name, count] of Object.entries(counts)) {
-            if (count > maxCount) {
-                maxCount = count;
-                bestCandidate = name;
-            }
-        }
-
-        const isStable = maxCount > (HISTORY_SIZE / 2.5);
-
-        if (isStable) {
-            // Find if this stable candidate was corrected by Agro-Brain in history
-            // We check if the bestCandidate matches any corrected entry in history
-            const isCorrected = history.some(h => (h.name === bestCandidate || h.className?.split(',')[0] === bestCandidate) && h.isCorrected);
-
-            // Clean up name for display
-            let displayName = bestCandidate;
-            let displayPercent = Math.round(predictions[0].probability * 100) + "%";
-
-            if (isCorrected) {
-                displayPercent = "Agro-Brain 🧠";
+            // --- منطق Agro-Brain ---
+            try {
+                if (ctx && video.readyState === 4) {
+                    const colorData = analyzeColor();
+                    finalPred = smartCorrect(predictions[0], colorData);
+                }
+            } catch (e) {
+                console.warn("تم تخطي إطار Agro-Brain:", e);
             }
 
-            drawResult(displayName, displayPercent, isCorrected ? '#00FF00' : '#00FFFF');
-        } else {
-            drawResult("Analysing...", 0, '#AAAAAA');
-        }
+            // إضافة للتاريخ
+            history.push(finalPred);
+            if (history.length > HISTORY_SIZE) history.shift();
 
-        // Update debug panel if visible
-        if (allowDebug && document.getElementById('aiDebugPanel').style.display !== 'none') {
-            document.getElementById('dbgRaw').textContent = predictions[0].className.split(',')[0];
-            document.getElementById('dbgColor').textContent = colorData ? `${colorData.dominant} (R${colorData.r} G${colorData.g} B${colorData.b})` : 'N/A';
-            document.getElementById('dbgAction').textContent = finalPred.action || 'None';
+            // تصويت الاستقرار
+            const counts = {};
+            history.forEach(p => {
+                const name = p.name || p.className.split(',')[0];
+                counts[name] = (counts[name] || 0) + 1;
+            });
+
+            let bestCandidate = null;
+            let maxCount = 0;
+            for (const [name, count] of Object.entries(counts)) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    bestCandidate = name;
+                }
+            }
+
+            const isStable = maxCount > (HISTORY_SIZE / 2.5);
+
+            if (isStable) {
+                const isCorrected = history.some(h =>
+                    (h.name === bestCandidate || h.className?.split(',')[0] === bestCandidate)
+                    && h.isCorrected
+                );
+
+                let displayName = bestCandidate;
+                let displayPercent = Math.round(predictions[0].probability * 100) + "%";
+
+                if (isCorrected) {
+                    displayPercent = "Agro-Brain 🧠";
+                }
+
+                drawResult(displayName, displayPercent, isCorrected ? '#00FF00' : '#00FFFF');
+            } else {
+                drawResult("جاري التحليل...", "⌛", '#AAAAAA');
+            }
+
+            // تحديث لوحة التطوير
+            updateDebugPanel(predictions[0], finalPred);
         }
+    } catch (error) {
+        console.error("خطأ في الكشف:", error);
     }
 
-    if (isRunning) requestAnimationFrame(detectFrame);
+    if (isRunning) {
+        requestAnimationFrame(detectFrame);
+    }
 }
 
-// --- AGRO-BRAIN FUNCTIONS ---
+// --- دوال Agro-Brain ---
 
 function analyzeColor() {
-    // Sample center 50x50 pixels
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const sampleSize = 50;
+    try {
+        // أخذ عينة من مركز الصورة 50x50 بكسل
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const sampleSize = 50;
 
-    // Draw current frame to hidden canvas or process directly if possible (tf.js handles video, but we need pixel data)
-    // We need to draw video to ctx to get data
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const frameData = ctx.getImageData(cx - sampleSize / 2, cy - sampleSize / 2, sampleSize, sampleSize);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frameData = ctx.getImageData(
+            Math.max(0, cx - sampleSize / 2),
+            Math.max(0, cy - sampleSize / 2),
+            Math.min(sampleSize, canvas.width),
+            Math.min(sampleSize, canvas.height)
+        );
 
-    // Average RGB
-    let r = 0, g = 0, b = 0;
-    const count = frameData.data.length / 4;
-    for (let i = 0; i < frameData.data.length; i += 4) {
-        r += frameData.data[i];
-        g += frameData.data[i + 1];
-        b += frameData.data[i + 2];
+        // حساب متوسط RGB
+        let r = 0, g = 0, b = 0;
+        const count = frameData.data.length / 4;
+
+        for (let i = 0; i < frameData.data.length; i += 4) {
+            r += frameData.data[i];
+            g += frameData.data[i + 1];
+            b += frameData.data[i + 2];
+        }
+
+        r = Math.round(r / count);
+        g = Math.round(g / count);
+        b = Math.round(b / count);
+
+        // تحديد اللون السائد
+        let dominant = 'Neutral';
+        if (r > g + 40 && r > b + 40) {
+            dominant = 'Red';
+        } else if (g > r + 20 && g > b + 20) {
+            dominant = 'Green';
+        } else if (r > 200 && g > 150 && b < 100) {
+            dominant = 'Orange';
+        }
+
+        // مسح الرسم (كنا نحتاج البيانات فقط)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        return { r, g, b, dominant };
+    } catch (error) {
+        console.error("خطأ في تحليل اللون:", error);
+        return { r: 0, g: 0, b: 0, dominant: 'Unknown' };
     }
-    r = Math.round(r / count);
-    g = Math.round(g / count);
-    b = Math.round(b / count);
-
-    // Determine Dominant Color
-    let dominant = 'Neutral';
-    if (r > g + 40 && r > b + 40) dominant = 'Red';
-    else if (g > r + 20 && g > b + 20) dominant = 'Green'; // Green is often less intense than Red
-    else if (r > 200 && g > 150 && b < 100) dominant = 'Orange';
-
-    // Clear the drawImage (we only wanted data, not to display video on canvas)
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    return { r, g, b, dominant };
 }
 
 function smartCorrect(prediction, colorData) {
     let name = prediction.className.split(',')[0].toLowerCase();
     let isCorrected = false;
-    let action = "None"; // Debug info
+    let action = "بدون تصحيح";
 
-    // Rule 1: The Tomato Fix
-    // If AI says Orange/Apple/Pomegranate but color is RED -> Tomato
+    // القاعدة 1: إصلاح الطماطم
     const redFruits = ['orange', 'apple', 'pomegranate', 'peach', 'apricot'];
     if (redFruits.some(f => name.includes(f)) && colorData.dominant === 'Red') {
-        name = 'Tomato';
+        name = 'Tomato (طماطم)';
         isCorrected = true;
-        action = "Red Color -> Tomato Fix";
+        action = "تصحيح: لون أحمر → طماطم";
     }
 
-    // Rule 2: The Cucumber Fix
-    // If AI says Zucchini/Squash/Banana but color is GREEN -> Cucumber
+    // القاعدة 2: إصلاح الخيار
     const greenVegs = ['zucchini', 'squash', 'banana', 'corn'];
     if (greenVegs.some(v => name.includes(v)) && colorData.dominant === 'Green') {
-        name = 'Cucumber';
+        name = 'Cucumber (خيار)';
         isCorrected = true;
-        action = "Green Color -> Cucumber Fix";
+        action = "تصحيح: لون أخضر → خيار";
     }
 
-    // Rule 3: The Leaf Fix (Greens)
-    // If AI says Cabbage/Leaf/Broccoli and is Green -> Lettuce/Arugula (Simulated)
+    // القاعدة 3: إصلاح الخضروات الورقية
     if ((name.includes('cabbage') || name.includes('broccoli')) && colorData.dominant === 'Green') {
-        // Just a guess optimization
-        name = 'Leafy (Lettuce/Arugula)';
+        name = 'Leafy Greens (خس/جرجير)';
         isCorrected = true;
-        action = "Green + Cabbage -> Leafy Fix";
+        action = "تصحيح: أخضر + كرنب → خضروات ورقية";
     }
 
-    // Rule 4: Pepper Fix
-    if (name.includes('bell pepper') && (colorData.dominant === 'Red' || colorData.dominant === 'Green')) {
-        name = 'Pepper'; // Simplify name
-        isCorrected = false; // Not a hard correction, just formatting
-        action = "Simpified Name";
+    // القاعدة 4: تبسيط اسم الفلفل
+    if (name.includes('bell pepper') || name.includes('pepper')) {
+        name = 'Pepper (فلفل)';
+        action = "تبسيط الاسم";
     }
 
-    return { name, isCorrected, action };
+    return {
+        name,
+        className: name,
+        isCorrected,
+        action,
+        probability: prediction.probability
+    };
 }
 
 function drawResult(text, subText, color) {
-    if (!ctx) return;
+    if (!ctx || !canvas) return;
 
-    // Background
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(10, canvas.height - 60, canvas.width - 20, 50);
+    try {
+        // خلفية
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(10, canvas.height - 70, canvas.width - 20, 60);
 
-    // Main Text
-    ctx.fillStyle = color;
-    ctx.font = 'bold 24px Cairo, Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height - 30);
+        // النص الرئيسي
+        ctx.fillStyle = color;
+        ctx.font = 'bold 22px Cairo, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height - 38);
 
-    // Sub Text (Confidence / Brain)
-    ctx.fillStyle = '#DDDDDD';
-    ctx.font = '14px Arial';
-    ctx.fillText(subText, canvas.width / 2, canvas.height - 10);
+        // النص الفرعي
+        ctx.fillStyle = '#DDDDDD';
+        ctx.font = '16px Cairo, Arial, sans-serif';
+        ctx.fillText(subText, canvas.width / 2, canvas.height - 15);
+    } catch (error) {
+        console.error("خطأ في الرسم:", error);
+    }
+}
 
-    // Debug Color Dot
-    // ctx.fillStyle = `rgb(${analyzeColor().r},${analyzeColor().g},${analyzeColor().b})`;
-    // ctx.beginPath(); ctx.arc(30, canvas.height-30, 10, 0, Math.PI*2); ctx.fill();
+function updateDebugPanel(rawPred, finalPred) {
+    if (!allowDebug) return;
+
+    const dbgPanel = document.getElementById('aiDebugPanel');
+    if (!dbgPanel || dbgPanel.style.display === 'none') return;
+
+    try {
+        const dbgRaw = document.getElementById('dbgRaw');
+        const dbgColor = document.getElementById('dbgColor');
+        const dbgAction = document.getElementById('dbgAction');
+
+        if (dbgRaw) dbgRaw.textContent = rawPred.className.split(',')[0];
+        if (dbgAction) dbgAction.textContent = finalPred.action || 'None';
+
+        // تحديث اللون فقط إذا كان متاحاً
+        if (dbgColor) {
+            try {
+                const colorData = analyzeColor();
+                dbgColor.textContent = colorData ?
+                    `${colorData.dominant} (R${colorData.r} G${colorData.g} B${colorData.b})` :
+                    'N/A';
+            } catch (e) {
+                dbgColor.textContent = 'Error';
+            }
+        }
+    } catch (error) {
+        console.error("خطأ في تحديث لوحة التطوير:", error);
+    }
 }
 
 function toggleDebug() {
     const p = document.getElementById('aiDebugPanel');
     if (p) {
-        if (p.style.display === 'none') {
+        if (p.style.display === 'none' || p.style.display === '') {
             p.style.display = 'block';
             allowDebug = true;
         } else {
@@ -308,4 +369,5 @@ function toggleDebug() {
     }
 }
 
+// معايرة الكانفس عند تغيير حجم النافذة
 window.addEventListener('resize', resizeCanvas);
