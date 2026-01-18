@@ -1,0 +1,50 @@
+# وثيقة تصميم النظام - مشروع الري الذكي (النسخة الاحترافية)
+
+## 1. المخطط الهيكلي للنظام (System Block Diagram)
+
+تمت إضافة طبقة السحابة (Cloud Layer) وتطبيق الموبايل ليعكس التصميم الاحترافي.
+
+```mermaid
+graph TD
+    subgraph Cloud_Services [خدمات السحابة]
+        BlynkApp[Blynk Mobile App\n(تحكم ومراقبة)]
+        WeatherAPI[OpenWeatherMap API\n(تنبؤات الأمطار)]
+        GoogleSheets[Cloud Database\n(سجل البيانات)]
+    end
+
+    subgraph Edge_Device [الجهاز الميداني]
+        ESP[ESP32-CAM AI Node]
+        EdgeDL[Edge Impulse Model\n(نموذج ذكاء اصطناعي)]
+    end
+
+    subgraph Sensors_Actuators [الحساسات والمشغلات]
+        Sensors[Soil & DHT Sensors]
+        Relays[Relay Module]
+        PumpValve[Mumps & Valves]
+    end
+
+    %% Connections
+    ESP -- WiFi (MQTT/HTTP) --> BlynkApp
+    ESP -- WiFi (REST API) --> WeatherAPI
+    ESP -- WiFi (Webhooks) --> GoogleSheets
+    
+    Sensors -- Data --> ESP
+    ESP -- Control --> Relays
+    Relays --> PumpValve
+    
+    ESP -- "Camera Frame" --> EdgeDL
+    EdgeDL --Classification --> ESP
+```
+
+## 2. المزايا الإضافية (Advanced Features)
+
+| الميزة | التقنية المستخدمة | الفائدة |
+| :--- | :--- | :--- |
+| **التحكم عن بعد** | **Blynk IoT Platform** | إمكانية تشغيل المضخة أو إيقافها ومراقبة الرطوبة من أي مكان في العالم عبر الموبايل. |
+| **الذكاء الاصطناعي الحقيقي** | **Edge Impulse** | استخدام نموذج تعلم عميق (Deep Learning) مدرب على صور النباتات لتحديد حالتها الصحية وحالة الطقس بدقة تفوق الحساسات التقليدية. |
+| **تنبؤات الطقس** | **OpenWeather API** | يمنع النظام الري إذا كان هناك توقع لهطول الأمطار في الساعات القادمة، مما يوفر كميات هائلة من المياه. |
+| **تسجيل البيانات** | **Cloud Logging** | حفظ تاريخ الري ونسب الرطوبة في جداول بيانات لتحليل الاستهلاك الموسمي. |
+
+## 3. متطلبات التشغيل
+*   **إنترنت:** توفر شبكة Wi-Fi في موقع المزرعة/البيت المحمي.
+*   **حسابات مجانية:** حساب على منصة Blynk وحساب Edge Impulse لتدريب النموذج.

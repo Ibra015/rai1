@@ -1,0 +1,73 @@
+# وثيقة تصميم النظام - مشروع الري الذكي (محدثة)
+
+## 1. المخطط الهيكلي للنظام (System Block Diagram)
+
+```mermaid
+graph TD
+    subgraph Power [الطاقة]
+        PSU[12V 5A Supply]
+        Reg[5V Regulator]
+    end
+
+    subgraph Inputs [المدخلات]
+        Cam[ESP32-CAM Camera]
+        Soil[10x Soil Moisture Sensors]
+        DHT[DHT22 Temp/Hum]
+    end
+
+    subgraph Output [الإخراج والعرض]
+        OLED[OLED Display 0.96 I2C]
+        WiFi[Mobile App / Cloud]
+    end
+
+    subgraph Actuators [المشغلات]
+        Relays[16-Channel Relay Module]
+        Pump[Water Pump 12V]
+        Valves[10x Solenoid Valves]
+    end
+
+    PSU --> Pump
+    PSU --> Relays
+    PSU --> Reg
+    Reg --> Cam
+    Reg --> OLED
+    Reg --> Soil
+    
+    Soil -- Analog GPIO --> Cam
+    DHT -- GPIO 14 --> Cam
+    Cam -- I2C --> OLED
+    Cam -- GPIO Ctrl --> Relays
+    Relays -.-> Valves
+    Relays -.-> Pump
+```
+
+## 2. قائمة المواد والمكونات (Bill of Materials - 2026 Estimates)
+
+| المكون (Item) | الكمية | السعر الفردي (ريال) | الإجمالي (ريال) | مصدر مقترح | ملاحظات |
+| :--- | :---: | :---: | :---: | :--- | :--- |
+| **ESP32-CAM** | 1 | 50 | 50 | AliExpress | وحدة تحكم + كاميرا |
+| **حساس رطوبة (Capacitive)** | 10 | 10 | 100 | Amazon.sa | مقاوم للصدأ |
+| **DHT22 (Temperature)** | 1 | 20 | 20 | AliExpress | دقة أعلى من DHT11 |
+| **ريليه 16-Channel 5V** | 1 | 40 | 40 | Amazon.sa | للتحكم بـ 10 محابس + مضخة |
+| **محابس Solenoid 12V** | 10 | 15 | 150 | AliExpress | صمامات كهربائية 1/2 بوصة |
+| **مضخة ماء 12V** | 1 | 30 | 30 | Amazon.sa | مضخة غشاء صغيرة |
+| **شاشة OLED 0.96"** | 1 | 25 | 25 | AliExpress | بروتوكول I2C |
+| **خزان ماء 20L + أنابيب** | 1 | 100 | 100 | محلي | أنابيب ري تنقيط |
+| **مصدر طاقة 12V 5A** | 1 | 50 | 50 | Amazon.sa | مع منظم جهد 5V |
+| **الإجمالي الكلي** | | | **~565 ريال** | | **اقتصادي جداً** |
+
+## 3. تفاصيل النباتات واحتياج الماء
+تمت برمجة النظام بناءً على الجدول التالي:
+
+| # | النبات | احتياج الماء (لتر/م²/أسبوع) | عتبة الرطوبة (%) |
+|---|---|---|---|
+| 1 | جرجير (Arugula) | 25-38 | 40-60% |
+| 2 | خس (Lettuce) | 25 | 50-70% |
+| 3 | سبانخ (Spinach) | 25-38 | 40-60% |
+| 4 | كرنب (Cabbage) | 25-38 | 50-70% |
+| 5 | فاصوليا (Beans) | 25-50 | 30-50% |
+| 6 | طماطم (Tomato) | 25-50 | 40-60% |
+| 7 | خيار (Cucumber) | 25-50 | 40-60% |
+| 8 | جزر (Carrot) | 25 | 30-50% |
+| 9 | فلفل (Pepper) | 25-50 | 40-60% |
+| 10| بازلاء (Peas) | 25 | 40-60% |

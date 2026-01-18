@@ -1,0 +1,88 @@
+# وثيقة تصميم النظام - مشروع الري الذكي
+
+## 1. المخطط الهيكلي للنظام (System Block Diagram)
+
+يوضح المخطط التالي كيفية ربط المكونات ببعضها. اقترحت فصل الكاميرا (ESP32-CAM) عن وحدة التحكم الرئيسية (ESP32) لضمان توفر منافذ كافية للحساسات والمحابس.
+
+```mermaid
+graph TD
+    subgraph Power [مصدر الطاقة]
+        PSU[12V Power Adapter]
+        Buck[Buck Converter 12V to 5V]
+    end
+
+    subgraph Sensors [الحساسات]
+        Mux[CD74HC4067 Multiplexer]
+        S1[Soil Sensor 1] --> Mux
+        S2[Soil Sensor 2] --> Mux
+        S3[... Sensors 3-10 ...] --> Mux
+        DHT[DHT22 Air Sensor]
+    end
+
+    subgraph Vision [وحدة الرؤية]
+        CAM[ESP32-CAM]
+        CAM_Desc[تحليل الطقس: مشمس/غائم]
+    end
+
+    subgraph Control [وحدة التحكم الرئيسية]
+        ESP[ESP32 DevKit V1]
+    end
+
+    subgraph Actuators [المشغلات]
+        RelayMod[16-Channel Relay Module]
+        Pump[Water Pump]
+        V1[Valve 1]
+        V2[Valve 2]
+        V3[... Valves 3-10 ...]
+    end
+
+    %% Power Connections
+    PSU == 12V ==> Pump
+    PSU == 12V ==> V1
+    PSU == 12V ==> V2
+    PSU == 12V ==> V3
+    PSU == 12V ==> RelayMod
+    PSU --> Buck
+    Buck == 5V ==> ESP
+    Buck == 5V ==> CAM
+    Buck == 5V ==> RelayMod
+    Buck == 5V ==> Sensors
+
+    %% Data Connections
+    Mux -- Analog Signal (1 pin) --> ESP
+    Mux -- Control (4 pins) --> ESP
+    DHT -- Data --> ESP
+    CAM -- Serial (UART) --> ESP
+    ESP -- Control Signals --> RelayMod
+    RelayMod -.-> Pump
+    RelayMod -.-> V1
+    RelayMod -.-> V2
+    RelayMod -.-> V3
+```
+
+## 2. قائمة المواد والمكونات (Bill of Materials - BOM)
+
+هذه القائمة تقديرية وتعتمد على الأسعار الشائعة في المتاجر الإلكترونية للإلكترونيات.
+
+| المكون (Component) | العدد | الوصف والسبب | السعر التقريبي (ريال) |
+| :--- | :---: | :--- | :---: |
+| **ESP32 DevKit V1** | 1 | وحدة التحكم الرئيسية (واي فاي + بلوتوث). | 35 |
+| **ESP32-CAM** | 1 | وحدة الكاميرا المنفصلة لتحليل الطقس. | 45 |
+| **Capacitive Soil Moisture Sensor** | 10 | حساسات رطوبة سعوية (مقاومة للصدأ) - واحد لكل نوع نبات. | 100 (10x10) |
+| **CD74HC4067 Multiplexer** | 1 | شريحة لتوصيل 16 حساس بمدخل تناظري واحد (توفير منافذ). | 15 |
+| **DHT22 Sensor** | 1 | حساس حرارة ورطوبة الجو (أدق من DHT11). | 20 |
+| **16-Channel Relay Module** | 1 | وحدة ريليهات للتحكم بالمضخة و 10 محابس (12V). | 60 |
+| **Solenoid Valve 12V** | 10 | محبس كهربائي للتحكم بماء كل خط. | 300 (10x30) |
+| **Water Pump 12V** | 1 | مضخة مياه صغيرة (Diaphragm Pump). | 50 |
+| **Power Supply 12V 10A** | 1 | محول كهرباء لتغذية النظام بالكامل. | 80 |
+| **Buck Converter (LM2596)** | 2 | لخفض الجهد من 12V إلى 5V لتشغيل المعالجات. | 20 |
+| **أسلاك ولوحة تجارب (Breadboard/PCB)** | مجم. | للتوصيل والتركيب. | 50 |
+| **أنابيب ري وتنقيط** | مجم. | لوازم السباكة والري. | 100 |
+| **الإجمالي التقريبي** | | | **~875 ريال** |
+
+> [!TIP]
+> **نصيحة توفير:** يمكن تقليل عدد المحابس باستخدام محبس واحد رئيسي وسقي النباتات بالتتابع يدوياً، أو تجميع النباتات المتشابهة في احتياج الماء في خط واحد (Zone) لتقليل عدد المحابس والحساسات.
+
+## 3. تفاصيل التوصيل التقنية
+*   **مشكلة المنافذ:** الـ ESP32 لديه عدد محدود من قنوات ADC التي تعمل أثناء تشغيل الـ WiFi. لهذا السبب، استخدام **Multiplexer** ضروري جداً لقراءة 10 حساسات تناظرية.
+*   **مشكلة الطاقة:** المحابس والمضخة تسحب تيار عالي، لذا يجب تغذيتها مباشرة من المصدر 12V وتشغيلها عبر الريليهات (العزل الكهربائي). لا تحاول تشغيلها من الـ ESP32 مباشرة.

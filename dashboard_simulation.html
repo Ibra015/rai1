@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGRO-OMNI | Integrated V18</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
+
+        :root {
+            --bg: #0f111a;
+            --panel: #1a1d2d;
+            --primary: #4f46e5;
+            --accent: #0ea5e9;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-main: #e2e8f0;
+            --text-sub: #94a3b8;
+            --border: #2d3748;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Cairo', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 260px;
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+            scrollbar-width: thin;
+            position: relative;
+        }
+
+        .logo-area {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: var(--text-sub);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* HEADER & NOTIFS */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .notif-btn {
+            position: relative;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            background: var(--panel);
+            border: 1px solid var(--border);
+        }
+
+        .badge {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: var(--danger);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .notif-panel {
+            position: absolute;
+            top: 80px;
+            left: 25px;
+            width: 300px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* GRID SYSTEM */
+        .grid-kpi {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .kpi-val {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+            margin-top: 5px;
+        }
+
+        .grid-split {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        /* CAMERA CARD */
+        .cam-container {
+            height: 350px;
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            background: black;
+            border: 1px solid var(--border);
+        }
+
+        .cam-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.9;
+        }
+
+        .rec-tag {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* WEATHER & PUMP SIDEBAR */
+        .side-widget {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .widget-card {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            flex: 1;
+        }
+
+        /* ZONES GRID (RESTORED MAIN FEATURE) */
+        .section-header {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .zones-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .zone-card {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 15px;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        .zone-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .z-img {
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .z-content {
+            flex: 1;
+        }
+
+        /* TOGGLE */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 22px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--success);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(18px);
+        }
+
+        /* REPORTS & TABLES */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table th {
+            color: var(--text-sub);
+            font-size: 0.9rem;
+        }
+
+        /* VIEW HANDLING */
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0
+            }
+
+            to {
+                opacity: 1
+            }
+        }
+
+        @media (max-width: 800px) {
+            body {
+                flex-direction: column;
+                overflow: auto;
+                height: auto;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                overflow-x: auto;
+                padding: 10px;
+                position: fixed;
+                bottom: 0;
+                order: 2;
+                border-top: 1px solid var(--border);
+                border-left: none;
+            }
+
+            .nav-item {
+                flex: 1;
+                justify-content: center;
+                font-size: 0.8rem;
+                flex-direction: column;
+                white-space: nowrap;
+            }
+
+            .main {
+                padding-bottom: 90px;
+            }
+
+            .grid-split {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo-area"><span class="material-icons-round" style="color:var(--success)">spa</span> Agro-Omni
+        </div>
+        <div class="nav-item active" onclick="go('dash', this)"><span class="material-icons-round">dashboard</span>
+            الرئيسية</div>
+        <div class="nav-item" onclick="go('reports', this)"><span class="material-icons-round">analytics</span> التقارير
+            البيانية</div>
+        <div class="nav-item" onclick="go('settings', this)"><span class="material-icons-round">settings</span>
+            الإعدادات</div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+        <!-- HEADER -->
+        <div class="top-bar">
+            <div>
+                <div class="page-title" id="pTitle">لوحة التحكم المركزية</div>
+                <div style="color:var(--text-sub)">System Online • V18 Integrated</div>
+            </div>
+            <div style="display:flex; gap:15px; align-items:center;">
+                <div class="notif-btn"
+                    onclick="document.getElementById('notif').style.display = document.getElementById('notif').style.display=='block'?'none':'block'">
+                    <span class="material-icons-round">notifications</span>
+                    <div class="badge"></div>
+                </div>
+                <button onclick="genPDF()"
+                    style="background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:bold;">
+                    <span class="material-icons-round" style="vertical-align:middle">picture_as_pdf</span> تقرير
+                </button>
+            </div>
+        </div>
+
+        <!-- NOTIF PANEL -->
+        <div class="notif-panel" id="notif">
+            <div style="padding:10px; border-bottom:1px solid #333; color:white">Log History</div>
+            <div style="padding:10px; font-size:0.85rem; color:#aaa">Zone 4 Watered (Auto) - 08:30</div>
+            <div style="padding:10px; font-size:0.85rem; color:#aaa">Pump Pressure Normal - 09:00</div>
+        </div>
+
+        <!-- VIEW 1: DASHBOARD (ALL IN ONE) -->
+        <div id="dash" class="view-section active">
+
+            <!-- KPIs -->
+            <div class="grid-kpi">
+                <div class="kpi-card">
+                    <div style="color:var(--text-sub)">Temp ℃</div>
+                    <div class="kpi-val" style="color:#f59e0b">32°C</div>
+                </div>
+                <div class="kpi-card">
+                    <div style="color:var(--text-sub)">Humidity %</div>
+                    <div class="kpi-val" style="color:#3b82f6">45%</div>
+                </div>
+                <div class="kpi-card">
+                    <div style="color:var(--text-sub)">Solar V</div>
+                    <div class="kpi-val" style="color:#eab308">13.4V</div>
+                </div>
+                <div class="kpi-card">
+                    <div style="color:var(--text-sub)">Pump Flow</div>
+                    <div class="kpi-val" style="color:#10b981" id="flowDisplay">0.0 L</div>
+                </div>
+            </div>
+
+            <!-- CAMERA + WEATHER (MERGED ROW) -->
+            <div class="grid-split">
+                <!-- CAMERA -->
+                <div class="cam-container">
+                    <img src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1000"
+                        class="cam-feed">
+                    <div class="rec-tag"><span style="animation:blink 1s infinite">●</span> LIVE FEED</div>
+                    <div
+                        style="position:absolute; bottom:15px; right:15px; background:rgba(0,0,0,0.7); padding:10px; border-radius:8px; color:white; font-size:0.8rem;">
+                        AI Status: <span style="color:var(--success)">Scanning...</span>
+                    </div>
+                </div>
+
+                <!-- WEATHER & PUMP WIDGETS -->
+                <div class="side-widget">
+                    <div class="widget-card">
+                        <div style="font-weight:bold; margin-bottom:10px; color:white;">حالة الطقس</div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="material-icons-round"
+                                style="font-size:2.5rem; color:var(--warning)">wb_sunny</span>
+                            <div>
+                                <div style="font-size:1.5rem; font-weight:bold; color:white">32°C</div>
+                                <div style="font-size:0.8rem; color:#aaa">Wind: 14km/h • UV: High</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="widget-card">
+                        <div
+                            style="font-weight:bold; margin-bottom:10px; color:white; display:flex; justify-content:space-between">
+                            <span>التحكم بالمضخة</span>
+                            <span
+                                style="font-size:0.7rem; background:#333; padding:2px 6px; border-radius:4px;">AUTO</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="color:#aaa">Main Pump</span>
+                            <label class="switch"><input type="checkbox" onchange="toggleFlow(this)"><span
+                                    class="slider"></span></label>
+                        </div>
+                        <div style="margin-top:10px; height:4px; background:#333; border-radius:2px; overflow:hidden;">
+                            <div id="flowBar" style="height:100%; width:0%; background:var(--accent); transition:0.5s">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ZONES GRID (RESTORED) -->
+            <div class="section-header">
+                <span>التحكم بالمناطق (Zones Control)</span>
+                <span style="font-size:0.9rem; color:var(--text-sub)">10 Active Units</span>
+            </div>
+            <div class="zones-grid" id="zBox"></div>
+
+        </div>
+
+        <!-- VIEW 2: REPORTS (DETAILED) -->
+        <div id="reports" class="view-section">
+            <h2 style="color:white">التقارير التفصيلية</h2>
+            <div
+                style="height:250px; background:var(--panel); padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid var(--border);">
+                <canvas id="repChart"></canvas>
+            </div>
+            <div class="widget-card">
+                <table class="data-table" id="rTable">
+                    <thead>
+                        <tr>
+                            <th>Zone</th>
+                            <th>Plant</th>
+                            <th>Moist%</th>
+                            <th>Status</th>
+                            <th>Harvest</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="settings" class="view-section">
+            <h2 style="color:white">الإعدادات</h2>
+            <div class="widget-card">System Config Placeholders...</div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- NAV ---
+        function go(id, btn) {
+            document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        // --- PUMP LOGIC ---
+        function toggleFlow(el) {
+            document.getElementById('flowBar').style.width = el.checked ? '100%' : '0%';
+            document.getElementById('flowDisplay').innerText = el.checked ? '45.0 L' : '0.0 L';
+        }
+
+        // --- DATA ---
+        const plants = [
+            { n: "Tomato", a: "طماطم", m: 45, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_je.jpg/150px-Tomato_je.jpg" },
+            { n: "Cucumber", a: "خيار", m: 72, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Cucumber_Kiwano.jpg/150px-Cucumber_Kiwano.jpg" },
+            { n: "Arugula", a: "جرجير", m: 80, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Arugula.jpg/150px-Arugula.jpg" },
+            { n: "Carrot", a: "جزر", m: 35, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Carrot_s.jpg/150px-Carrot_s.jpg" },
+            { n: "Lettuce", a: "خس", m: 60, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Iceberg_lettuce_in_SB.jpg/150px-Iceberg_lettuce_in_SB.jpg" },
+            { n: "Pepper", a: "فلفل", m: 55, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Pepper_Bell.jpg/150px-Pepper_Bell.jpg" },
+            { n: "Spinach", a: "سبانخ", m: 85, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Spinacia_oleracea_Spinat_Bl%C3%BCte_2.jpg/150px-Spinacia_oleracea_Spinat_Bl%C3%BCte_2.jpg" },
+            { n: "Beans", a: "فاصوليا", m: 20, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Green_beans.jpg/150px-Green_beans.jpg" },
+            { n: "Peas", a: "بازلاء", m: 90, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Erbsen_Unbekannte_Sorte.jpg/150px-Erbsen_Unbekannte_Sorte.jpg" },
+            { n: "Cabbage", a: "كرنب", m: 50, i: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Cabbage_and_cross_section_on_white.jpg/150px-Cabbage_and_cross_section_on_white.jpg" }
+        ];
+
+        // --- POPULATE ZONES ---
+        const box = document.getElementById('zBox');
+        plants.forEach((p, i) => {
+            box.innerHTML += `
+        <div class="zone-card">
+            <img src="${p.i}" class="z-img">
+            <div class="z-content">
+                <div style="font-weight:bold; margin-bottom:5px;">${p.a} (${p.n})</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.8rem; color:${p.m < 40 ? 'var(--danger)' : 'var(--success)'}">${p.m}% Moist</span>
+                    <label class="switch" style="transform:scale(0.8)"><input type="checkbox"><span class="slider"></span></label>
+                </div>
+                <div style="width:100%; background:#333; height:4px; margin-top:5px; border-radius:2px;">
+                    <div style="width:${p.m}%; background:${p.m < 40 ? 'var(--danger)' : 'var(--success)'}; height:100%"></div>
+                </div>
+            </div>
+        </div>`;
+        });
+
+        // --- POPULATE REPORTS TABLE ---
+        const tb = document.querySelector('#rTable tbody');
+        plants.forEach((p, i) => {
+            tb.innerHTML += `<tr><td>Z0${i + 1}</td><td>${p.n}</td><td>${p.m}%</td><td style="color:${p.m < 40 ? 'red' : 'green'}">${p.m < 40 ? 'Dry' : 'Good'}</td><td>Oct 20</td></tr>`;
+        });
+
+        // --- CHART ---
+        new Chart(document.getElementById('repChart'), {
+            type: 'bar',
+            data: {
+                labels: plants.map(p => p.n),
+                datasets: [{ label: 'Moisture %', data: plants.map(p => p.m), backgroundColor: '#4f46e5' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { display: false } } } }
+        });
+
+        // --- PDF ---
+        window.genPDF = () => {
+            const doc = new window.jspdf.jsPDF();
+            doc.text("Agro-Omni Full System Report", 14, 20);
+            doc.autoTable({ html: '#rTable', startY: 30 });
+            doc.save("Report_V18.pdf");
+        };
+
+    </script>
+</body>
+
+</html>
