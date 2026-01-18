@@ -10,6 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="js/plant_data.js"></script>
+    <script src="js/weather.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
@@ -432,11 +433,11 @@
             <div class="grid-kpi">
                 <div class="kpi-card">
                     <div style="color:var(--text-sub)">Temp ℃</div>
-                    <div class="kpi-val" style="color:#f59e0b">32°C</div>
+                    <div class="kpi-val" style="color:#f59e0b" id="tempKpi">--°C</div>
                 </div>
                 <div class="kpi-card">
                     <div style="color:var(--text-sub)">Humidity %</div>
-                    <div class="kpi-val" style="color:#3b82f6">45%</div>
+                    <div class="kpi-val" style="color:#3b82f6" id="humidKpi">--%</div>
                 </div>
                 <div class="kpi-card">
                     <div style="color:var(--text-sub)">Solar V</div>
@@ -469,8 +470,10 @@
                             <span class="material-icons-round"
                                 style="font-size:2.5rem; color:var(--warning)">wb_sunny</span>
                             <div>
-                                <div style="font-size:1.5rem; font-weight:bold; color:white">32°C</div>
-                                <div style="font-size:0.8rem; color:#aaa">Wind: 14km/h • UV: High</div>
+                                <div style="font-size:1.5rem; font-weight:bold; color:white" id="weatherWidgetTemp">--°C
+                                </div>
+                                <div style="font-size:0.8rem; color:#aaa" id="weatherWidgetDetails">Loading local
+                                    weather...</div>
                             </div>
                         </div>
                     </div>
