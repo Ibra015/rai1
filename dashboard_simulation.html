@@ -23,16 +23,30 @@
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
 
         :root {
-            --bg: #0f111a;
-            --panel: #1a1d2d;
+            /* Light Theme (Default) */
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --sidebar-bg: #f1f5f9;
             --primary: #4f46e5;
             --accent: #0ea5e9;
             --success: #10b981;
             --danger: #ef4444;
             --warning: #f59e0b;
-            --text-main: #e2e8f0;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body.dark-theme {
+            /* Dark Theme Overrides */
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --sidebar-bg: #0f172a;
+            --text-main: #f1f5f9;
             --text-sub: #94a3b8;
-            --border: #2d3748;
+            --border: #334155;
+            --card-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
         }
 
         * {
@@ -54,7 +68,7 @@
         /* شريط جانبي */
         .sidebar {
             width: 260px;
-            background: var(--panel);
+            background: var(--sidebar-bg);
             border-left: 1px solid var(--border);
             display: flex;
             flex-direction: column;
@@ -68,13 +82,13 @@
             overflow-y: auto;
             padding: 25px;
             scrollbar-width: thin;
-            scrollbar-color: var(--primary) var(--panel);
+            scrollbar-color: var(--primary) var(--bg);
         }
 
         .logo-area {
             font-size: 1.5rem;
             font-weight: 800;
-            color: white;
+            color: var(--text-main);
             margin-bottom: 40px;
             display: flex;
             align-items: center;
@@ -96,9 +110,15 @@
 
         .nav-item:hover,
         .nav-item.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: var(--card-shadow);
+            transform: translateX(-5px);
+        }
+
+        .nav-item.active {
             background: var(--primary);
             color: white;
-            transform: translateX(-5px);
         }
 
         /* شريط علوي */
@@ -114,7 +134,7 @@
         .page-title {
             font-size: 1.8rem;
             font-weight: 700;
-            color: white;
+            color: var(--text-main);
         }
 
         .status-badge {
@@ -122,11 +142,12 @@
             align-items: center;
             gap: 5px;
             padding: 5px 12px;
-            background: rgba(16, 185, 129, 0.1);
+            background: white;
             border: 1px solid var(--success);
             border-radius: 20px;
             font-size: 0.85rem;
             color: var(--success);
+            box-shadow: var(--card-shadow);
         }
 
         .status-badge.offline {
@@ -149,11 +170,12 @@
             border-radius: 12px;
             border: 1px solid var(--border);
             transition: all 0.3s;
+            box-shadow: var(--card-shadow);
         }
 
         .kpi-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(79, 70, 229, 0.2);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
         }
 
         .kpi-label {
@@ -165,7 +187,7 @@
         .kpi-val {
             font-size: 2rem;
             font-weight: 700;
-            color: white;
+            color: var(--text-main);
         }
 
         /* الكاميرا */
@@ -181,8 +203,9 @@
             position: relative;
             border-radius: 12px;
             overflow: hidden;
-            background: black;
-            border: 2px solid var(--border);
+            background: #e2e8f0;
+            border: 1px solid var(--border);
+            box-shadow: var(--card-shadow);
         }
 
         .cam-feed {
@@ -225,7 +248,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(255, 255, 255, 0.85);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -235,7 +258,7 @@
         }
 
         .cam-overlay h3 {
-            color: white;
+            color: var(--text-main);
             font-size: 1.5rem;
         }
 
@@ -257,13 +280,14 @@
         .cam-btn:hover {
             background: #4338ca;
             transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px var(--primary);
         }
 
         .stop-btn {
             position: absolute;
             top: 15px;
             right: 15px;
-            background: rgba(239, 68, 68, 0.95);
+            background: var(--danger);
             color: white;
             border: none;
             width: 45px;
@@ -275,6 +299,7 @@
             cursor: pointer;
             z-index: 30;
             transition: all 0.2s;
+            box-shadow: var(--card-shadow);
         }
 
         .stop-btn:hover {
@@ -295,12 +320,13 @@
             border-radius: 12px;
             border: 1px solid var(--border);
             flex: 1;
+            box-shadow: var(--card-shadow);
         }
 
         .widget-title {
             font-weight: bold;
             margin-bottom: 15px;
-            color: white;
+            color: var(--text-main);
             font-size: 1.1rem;
         }
 
@@ -314,6 +340,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            color: var(--text-main);
         }
 
         .zones-grid {
@@ -331,12 +358,13 @@
             gap: 15px;
             transition: all 0.3s;
             cursor: pointer;
+            box-shadow: var(--card-shadow);
         }
 
         .zone-card:hover {
             border-color: var(--accent);
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(14, 165, 233, 0.2);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
         }
 
         .z-img {
@@ -344,7 +372,7 @@
             height: 80px;
             border-radius: 10px;
             object-fit: cover;
-            border: 2px solid var(--border);
+            border: 1px solid var(--border);
         }
 
         .z-content {
@@ -354,7 +382,7 @@
         .z-name {
             font-weight: bold;
             margin-bottom: 5px;
-            color: white;
+            color: var(--text-main);
             font-size: 1.1rem;
         }
 
@@ -366,7 +394,7 @@
         .moisture-bar {
             width: 100%;
             height: 6px;
-            background: #333;
+            background: #edf2f7;
             border-radius: 3px;
             overflow: hidden;
             margin-top: 8px;
@@ -399,7 +427,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #333;
+            background-color: #cbd5e1;
             transition: .3s;
             border-radius: 26px;
         }
@@ -414,6 +442,7 @@
             background-color: white;
             transition: .3s;
             border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
 
         input:checked+.slider {
@@ -423,6 +452,7 @@
         input:checked+.slider:before {
             transform: translateX(24px);
         }
+
 
         /* عرض الأقسام */
         .view-section {
@@ -524,6 +554,12 @@
                     النظام متصل • V18
                 </div>
             </div>
+            <div style="display:flex;gap:15px;align-items:center;">
+                <button onclick="toggleTheme()" class="kpi-card"
+                    style="display:flex;align-items:center;justify-content:center;width:45px;height:45px;padding:0;cursor:pointer;border-radius:50%;">
+                    <span class="material-icons-round" id="themeIcon">dark_mode</span>
+                </button>
+            </div>
         </div>
 
         <!-- القسم 1: لوحة التحكم -->
@@ -574,26 +610,26 @@
                     </div>
 
                     <div
-                        style="position:absolute;bottom:15px;right:15px;background:rgba(0,0,0,0.8);padding:12px;border-radius:10px;color:white;font-size:0.85rem;max-width:200px;">
+                        style="position:absolute;bottom:15px;right:15px;background:rgba(255,255,255,0.9);padding:12px;border-radius:10px;color:var(--text-main);font-size:0.85rem;max-width:200px;box-shadow:var(--card-shadow);border:1px solid var(--border);">
                         <div style="font-weight:bold;margin-bottom:5px;">🧠 حالة الذكاء الاصطناعي</div>
-                        <div id="aiStatusText" style="color:var(--warning)">في الانتظار...</div>
+                        <div id="aiStatusText" style="color:var(--primary)">في الانتظار...</div>
                     </div>
 
                     <!-- زر التطوير -->
                     <button onclick="toggleDebug()"
-                        style="position:absolute;bottom:15px;left:15px;background:rgba(255,255,255,0.15);border:none;color:white;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;">
+                        style="position:absolute;bottom:15px;left:15px;background:white;border:1px solid var(--border);color:var(--text-sub);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;box-shadow:var(--card-shadow);">
                         🔧 وضع المطور
                     </button>
 
                     <!-- لوحة التطوير -->
                     <div id="aiDebugPanel"
-                        style="display:none;position:absolute;top:70px;left:15px;background:rgba(0,0,0,0.9);padding:12px;border-radius:8px;color:#00ff00;font-family:monospace;font-size:11px;max-width:220px;border:1px solid #333;">
+                        style="display:none;position:absolute;top:70px;left:15px;background:white;padding:12px;border-radius:8px;color:var(--text-main);font-family:monospace;font-size:11px;max-width:220px;border:1px solid var(--border);box-shadow:var(--card-shadow);">
                         <div
-                            style="border-bottom:1px solid #444;margin-bottom:8px;padding-bottom:5px;font-weight:bold;color:white;">
+                            style="border-bottom:1px solid var(--border);margin-bottom:8px;padding-bottom:5px;font-weight:bold;color:var(--primary);">
                             🔬 لوحة التطوير</div>
-                        <div>تصنيف AI: <span id="dbgRaw" style="color:yellow">-</span></div>
-                        <div>اللون: <span id="dbgColor" style="color:cyan">-</span></div>
-                        <div>الإجراء: <span id="dbgAction" style="color:orange">-</span></div>
+                        <div>تصنيف AI: <span id="dbgRaw" style="color:var(--accent)">-</span></div>
+                        <div>اللون: <span id="dbgColor" style="color:var(--success)">-</span></div>
+                        <div>الإجراء: <span id="dbgAction" style="color:var(--danger)">-</span></div>
                     </div>
                 </div>
 
@@ -605,8 +641,10 @@
                             <span class="material-icons-round"
                                 style="font-size:3rem;color:var(--warning)">wb_sunny</span>
                             <div>
-                                <div style="font-size:2rem;font-weight:bold;color:white" id="weatherTemp">--°C</div>
-                                <div style="font-size:0.85rem;color:#aaa" id="weatherDetails">جاري التحميل...</div>
+                                <div style="font-size:2rem;font-weight:bold;color:var(--text-main)" id="weatherTemp">
+                                    --°C</div>
+                                <div style="font-size:0.85rem;color:var(--text-sub)" id="weatherDetails">جاري التحميل...
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -618,13 +656,13 @@
                                 style="float:left;font-size:0.7rem;background:#333;padding:3px 8px;border-radius:5px;">AUTO</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                            <span style="color:#aaa">المضخة الرئيسية</span>
+                            <span style="color:var(--text-sub)">المضخة الرئيسية</span>
                             <label class="switch">
                                 <input type="checkbox" onchange="togglePump(this)">
                                 <span class="slider"></span>
                             </label>
                         </div>
-                        <div style="height:8px;background:#222;border-radius:4px;overflow:hidden;">
+                        <div style="height:8px;background:#edf2f7;border-radius:4px;overflow:hidden;">
                             <div id="flowBar" style="height:100%;width:0%;background:var(--accent);transition:0.5s">
                             </div>
                         </div>
@@ -642,16 +680,16 @@
 
         <!-- القسم 2: التقارير -->
         <div id="reports" class="view-section">
-            <h2 style="color:white;margin-bottom:20px">📊 التقارير التفصيلية</h2>
+            <h2 style="color:var(--text-main);margin-bottom:20px">📊 التقارير التفصيلية</h2>
             <div
-                style="background:var(--panel);padding:20px;border-radius:12px;border:1px solid var(--border);margin-bottom:20px;">
+                style="background:var(--panel);padding:20px;border-radius:12px;border:1px solid var(--border);margin-bottom:20px;box-shadow:var(--card-shadow);">
                 <canvas id="repChart" style="max-height:300px"></canvas>
             </div>
         </div>
 
         <!-- القسم 3: الإعدادات -->
         <div id="settings" class="view-section">
-            <h2 style="color:white;margin-bottom:20px">⚙️ الإعدادات</h2>
+            <h2 style="color:var(--text-main);margin-bottom:20px">⚙️ الإعدادات</h2>
             <div class="widget-card">
                 <p style="color:var(--text-sub)">قريباً: إعدادات متقدمة للنظام...</p>
             </div>
@@ -660,6 +698,30 @@
 
     <!-- النصوص البرمجية -->
     <script>
+        // نظام الثيم (فاتح/داكن)
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) icon.textContent = isDark ? 'light_mode' : 'dark_mode';
+        }
+
+        // تهيئة الثيم عند التحميل
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+
+            if (isDark) {
+                document.body.classList.add('dark-theme');
+            }
+            updateThemeIcon(isDark);
+        })();
+
         // التنقل بين الأقسام
         function switchView(id, btn) {
             document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
@@ -728,11 +790,11 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: true, labels: { color: '#e2e8f0' } }
+                    legend: { display: true, labels: { color: '#64748b' } }
                 },
                 scales: {
-                    y: { grid: { color: '#2d3748' }, ticks: { color: '#94a3b8' } },
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    y: { ticks: { color: '#64748b' }, grid: { color: '#f1f5f9' } },
+                    x: { ticks: { color: '#64748b' }, grid: { display: false } }
                 }
             }
         });
