@@ -1,0 +1,20 @@
+# Agro-Omni .gitignore
+
+# ملف الإعدادات الحساسة (WiFi + كلمات المرور)
+config.h
+
+# ملفات محرر Claude/Gemini
+*.metadata.json
+*.resolved
+*.resolved.*
+
+# نظام التشغيل
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# بيئة التطوير
+.vscode/
+.idea/
+*.swp
+*.swo

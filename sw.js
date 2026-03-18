@@ -1,38 +1,42 @@
-// Agro-Omni Service Worker v1.0
-// يسمح للتطبيق بالعمل بدون إنترنت
+// Agro-Omni Service Worker v2.0
 
-const CACHE_NAME = 'agro-omni-v1';
+const CACHE_NAME = 'agro-omni-v2';
 const ASSETS_TO_CACHE = [
-    '/rai1/dashboard_simulation.html',
-    '/rai1/js/camera_ai.js',
-    '/rai1/manifest.json',
-    '/rai1/assets/images/tomato.png',
-    '/rai1/assets/images/cucumber.png',
-    '/rai1/assets/images/arugula.png',
-    '/rai1/assets/images/carrot.png',
-    '/rai1/assets/images/lettuce.png',
-    '/rai1/assets/images/pepper.png',
-    '/rai1/assets/images/spinach.png',
-    '/rai1/assets/images/beans.png',
-    '/rai1/assets/images/peas.png',
-    '/rai1/assets/images/cabbage.png',
-    // External CDNs (will be fetched on first load)
+    './dashboard_simulation.html',
+    './css/styles.css',
+    './js/plant_data.js',
+    './js/weather.js',
+    './js/dashboard.js',
+    './js/camera_ai.js',
+    './js/websocket.js',
+    './js/scheduler.js',
+    './js/i18n.js',
+    './manifest.json',
+    './assets/images/tomato.png',
+    './assets/images/cucumber.png',
+    './assets/images/arugula.png',
+    './assets/images/carrot.png',
+    './assets/images/lettuce.png',
+    './assets/images/pepper.png',
+    './assets/images/spinach.png',
+    './assets/images/beans.png',
+    './assets/images/peas.png',
+    './assets/images/cabbage.png',
+    './assets/icons/icon-144.png',
+    './assets/icons/icon-192.png',
     'https://fonts.googleapis.com/icon?family=Material+Icons+Round',
     'https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap',
     'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
-// تثبيت Service Worker وتخزين الملفات
+// تثبيت وتخزين الملفات
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing Service Worker...');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[SW] Caching app shell...');
-                return cache.addAll(ASSETS_TO_CACHE);
-            })
-            .catch((err) => {
-                console.warn('[SW] Cache failed (some assets may require network):', err);
+                return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
+                    console.warn('[SW] بعض الملفات لم تُخزّن:', err);
+                });
             })
     );
     self.skipWaiting();
@@ -40,35 +44,32 @@ self.addEventListener('install', (event) => {
 
 // تفعيل وحذف الكاش القديم
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activating Service Worker...');
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log('[SW] Deleting old cache:', cacheName);
-                        return caches.delete(cacheName);
-                    }
-                })
+                cacheNames
+                    .filter(name => name !== CACHE_NAME)
+                    .map(name => caches.delete(name))
             );
         })
     );
     self.clients.claim();
 });
 
-// استراتيجية: Network First, ثم Cache
+// استراتيجية: Network First ثم Cache
 self.addEventListener('fetch', (event) => {
-    // تجاهل طلبات الكاميرا والـ API
-    if (event.request.url.includes('getUserMedia') ||
-        event.request.url.includes('api.open-meteo.com') ||
-        event.request.url.includes('tensorflow')) {
+    // تجاهل طلبات الكاميرا والـ API والـ TensorFlow
+    const url = event.request.url;
+    if (url.includes('getUserMedia') ||
+        url.includes('api.open-meteo.com') ||
+        url.includes('tensorflow') ||
+        url.includes('mobilenet')) {
         return;
     }
 
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                // تخزين النسخة الجديدة
                 if (response.status === 200) {
                     const responseClone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => {
@@ -78,14 +79,10 @@ self.addEventListener('fetch', (event) => {
                 return response;
             })
             .catch(() => {
-                // إذا فشل الإنترنت، استخدم الكاش
                 return caches.match(event.request).then((cachedResponse) => {
-                    if (cachedResponse) {
-                        return cachedResponse;
-                    }
-                    // صفحة افتراضية للأوفلاين
+                    if (cachedResponse) return cachedResponse;
                     if (event.request.mode === 'navigate') {
-                        return caches.match('/rai1/dashboard_simulation.html');
+                        return caches.match('./dashboard_simulation.html');
                     }
                 });
             })
@@ -98,5 +95,3 @@ self.addEventListener('message', (event) => {
         self.skipWaiting();
     }
 });
-
-console.log('[SW] Service Worker Loaded Successfully ✅');

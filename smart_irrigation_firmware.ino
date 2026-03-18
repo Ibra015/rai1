@@ -1,25 +1,19 @@
 /*
  * =========================================================================
- *  PROJECT: AGRO-OMNI SMART IRRIGATION SYSTEM (V3 Final)
+ *  PROJECT: AGRO-OMNI SMART IRRIGATION SYSTEM (V4)
  * =========================================================================
  *
- *  IMPORTANT SETUP INSTRUCTIONS (READ CAREFULLY):
- *  1. In Arduino IDE, go to Tools > Board > ESP32 Arduino > Select "AI Thinker
- * ESP32-CAM".
- *  2. Go to Tools > Partition Scheme > Select "Huge APP (3MB No OTA/1MB
- * SPIFFS)". (This is CRITICAL to fit the camera code and web server).
- *  3. Install Libraries (Sketch > Include Library > Manage Libraries):
- *     - "Adafruit GFX Library"
- *     - "Adafruit SSD1306"
- *     - "ArduinoJson" (by Benoit Blanchon)
- *     - "DHT sensor library" (by Adafruit)
- *     - "WebSockets" (by Markus Sattler)
+ *  SETUP:
+ *  1. Board: "AI Thinker ESP32-CAM"
+ *  2. Partition: "Huge APP (3MB No OTA/1MB SPIFFS)"
+ *  3. Libraries: Adafruit GFX, Adafruit SSD1306, ArduinoJson, DHT, WebSockets
+ *  4. Copy config.example.h to config.h and set WiFi credentials
  *
- *  NOTE ON PINS:
- *  - The ESP32-CAM uses almost all GPIOs for the Camera.
- *  - Using WiFi disables ADC2 pins (GPIO 0,2,4,12,13,14,15,25,26,27).
- *  - You might experience noise on sensors if connected to these pins.
- *  - Best practice: Use an external I2C Mux (ADS1115) for stable readings.
+ *  PIN NOTES:
+ *  - ESP32-CAM uses most GPIOs for Camera
+ *  - WiFi disables ADC2 pins (GPIO 0,2,4,12,13,14,15,25,26,27)
+ *  - Best practice: Use ADS1115 I2C multiplexer for stable analog readings
+ *  - For full 10-zone support: Use MCP23017 I2C GPIO expander for relays
  * =========================================================================
  */
 
@@ -34,9 +28,10 @@
 #include <WiFi.h>
 #include <Wire.h>
 
+// Configuration (copy config.example.h to config.h)
+#include "config.h"
+
 // --- CAMERA CONFIG (AI THINKER MODEL) ---
-#define CAMERA_MODEL_AI_THINKER
-#if defined(CAMERA_MODEL_AI_THINKER)
 #define PWDN_GPIO_NUM 32
 #define RESET_GPIO_NUM -1
 #define XCLK_GPIO_NUM 0
@@ -53,12 +48,9 @@
 #define VSYNC_GPIO_NUM 25
 #define HREF_GPIO_NUM 23
 #define PCLK_GPIO_NUM 22
-#else
-#error "Camera model not selected"
-#endif
 
-// --- SENSORS & ACTUATORS ---
-#define DHTPIN 13 // IO13 (Free on most boards)
+// --- SENSORS ---
+#define DHTPIN 13
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -66,93 +58,127 @@ DHT dht(DHTPIN, DHTTYPE);
 #define SCREEN_HEIGHT 64
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-// PINS CONFIGURATION
-// WARNING: ESP32-CAM has very few free pins.
-// Using these requires disabling camera features or using specific 'SD Card'
-// mode pins. We proceed with the User's requested mapping, but stability
-// depends on wiring.
-const int soilPins[6] = {12, 14, 15, 16, 17, 18};
-const int relayPins[9] = {2, 4, 19, 21, 22, 25, 26, 27};
-const int pumpPin =
-    33; // Usually the internal LED on some boards, check schematic.
+// --- PIN CONFIGURATION ---
+#define NUM_ZONES 10
 
-// --- NETWORK CREDENTIALS ---
-const char *ssid = "YOUR_WIFI_SSID";         // <--- CHANGE THIS
-const char *password = "YOUR_WIFI_PASSWORD"; // <--- CHANGE THIS
+#ifdef USE_GPIO_EXPANDER
+  #include <Adafruit_MCP23X17.h>
+  Adafruit_MCP23X17 mcp;
+#else
+  const int relayPins[] = {2, 4};
+  const int NUM_DIRECT_RELAYS = sizeof(relayPins) / sizeof(relayPins[0]);
+#endif
 
+const int soilPins[] = {12, 14, 15, 16, 17, 18};
+const int NUM_SOIL_SENSORS = sizeof(soilPins) / sizeof(soilPins[0]);
+const int pumpPin = 33;
+
+// --- NETWORK ---
 WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
 
-// --- LOGIC VARIABLES ---
-bool valveStates[10] = {false};
-unsigned long wateringTimers[10] = {0};
+// --- LOGIC ---
+bool valveStates[NUM_ZONES] = {false};
+unsigned long wateringTimers[NUM_ZONES] = {0};
 unsigned long lastSensorRead = 0;
+unsigned long lastAutoCheck = 0;
+unsigned long lastReconnect = 0;
+bool rainExpected = false;
 
-// Function Prototypes
+// Plant moisture thresholds (matching plant_data.js)
+struct PlantConfig {
+  const char *name;
+  int minMoisture;
+  int maxMoisture;
+  float waterMins;
+};
+
+const PlantConfig plantConfigs[NUM_ZONES] = {
+    {"Tomato", 30, 70, 3.0},    {"Cucumber", 50, 85, 2.5},
+    {"Arugula", 60, 90, 2.0},   {"Carrot", 25, 65, 4.0},
+    {"Lettuce", 45, 80, 2.0},   {"Pepper", 35, 75, 3.0},
+    {"Spinach", 65, 95, 1.5},   {"Beans", 15, 55, 5.0},
+    {"Peas", 70, 95, 1.5},      {"Cabbage", 35, 70, 3.5}
+};
+
+// Prototypes
 void setupCamera();
 void setupWiFi();
 void checkTimers();
 void sendSensorData();
 void handleControl();
 void broadcastUpdate();
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload,
-                    size_t length);
+void broadcastSensorData();
+void setRelay(int zone, bool state);
+void autoWateringCheck();
+void startWatering(int zone, float durationMins);
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n[System] Booting Agro-Omni V3...");
+  Serial.println("\n[System] Booting Agro-Omni V4...");
 
   // 1. Initialize Pins
   pinMode(pumpPin, OUTPUT);
-  digitalWrite(pumpPin, HIGH); // Assuming Active LOW Relay
+  digitalWrite(pumpPin, HIGH);
 
-  for (int i = 0; i < 6; i++)
+  #ifdef USE_GPIO_EXPANDER
+    Wire.begin(14, 15);
+    if (!mcp.begin_I2C(0x20, &Wire)) {
+      Serial.println("[Error] MCP23017 not found");
+    } else {
+      for (int i = 0; i < NUM_ZONES; i++) {
+        mcp.pinMode(i, OUTPUT);
+        mcp.digitalWrite(i, HIGH);
+      }
+      Serial.println("[System] MCP23017 initialized (10 zones)");
+    }
+  #else
+    for (int i = 0; i < NUM_DIRECT_RELAYS; i++) {
+      pinMode(relayPins[i], OUTPUT);
+      digitalWrite(relayPins[i], HIGH);
+    }
+    Serial.printf("[System] Direct GPIO mode (%d relays)\n", NUM_DIRECT_RELAYS);
+  #endif
+
+  for (int i = 0; i < NUM_SOIL_SENSORS; i++)
     pinMode(soilPins[i], INPUT);
-  for (int i = 0; i < 9; i++) {
-    pinMode(relayPins[i], OUTPUT);
-    digitalWrite(relayPins[i], HIGH); // Active LOW
-  }
 
-  // 2. Initialize Sensors (Display/DHT)
+  // 2. Sensors
   dht.begin();
-
-  // Try initializing OLED on default I2C (SDA=14, SCL=15 on some boards, check
-  // wire) Or standard Wire (21, 22). NOTE: ESP32-CAM doesn't have standard I2C
-  // pins exposed easily. We assume User has configured Wire pins correctly in
-  // library or hardware.
-  Wire.begin(14, 15); // Custom I2C pins for ESP32-CAM often used
+  Wire.begin(14, 15);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("[Error] SSD1306 not found"));
+    Serial.println("[Error] SSD1306 not found");
   } else {
     display.clearDisplay();
     display.setTextColor(WHITE);
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.println("Agro-Omni System");
+    display.println("Agro-Omni V4");
     display.println("Initializing...");
     display.display();
   }
 
-  // 3. Initialize Camera
+  // 3. Camera
   setupCamera();
 
-  // 4. Mount SPIFFS (Filesystem)
+  // 4. Filesystem
   if (!SPIFFS.begin(true)) {
     Serial.println("[Error] SPIFFS Mount Failed");
-  } else {
-    Serial.println("[System] SPIFFS Mounted");
   }
 
-  // 5. Connect WiFi
+  // 5. WiFi
   setupWiFi();
 
-  // 6. Setup Web Server
+  // 6. Web Server with Authentication
   server.on("/", HTTP_GET, []() {
+    if (!server.authenticate(authUser, authPassword)) {
+      return server.requestAuthentication();
+    }
     File file = SPIFFS.open("/dashboard_simulation.html", "r");
     if (!file) {
-      server.send(500, "text/plain",
-                  "Dashboard File Missing in SPIFFS. Upload Data.");
+      server.send(500, "text/plain", "Dashboard Missing");
       return;
     }
     server.streamFile(file, "text/html");
@@ -160,41 +186,46 @@ void setup() {
   });
 
   server.on("/data", HTTP_GET, sendSensorData);
-  server.on("/control", HTTP_POST, handleControl);
+
+  server.on("/control", HTTP_POST, []() {
+    if (!server.authenticate(authUser, authPassword)) {
+      return server.requestAuthentication();
+    }
+    handleControl();
+  });
 
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 
-  Serial.println("[System] Ready.");
+  memset(wateringTimers, 0, sizeof(wateringTimers));
+  Serial.println("[System] Agro-Omni V4 Ready.");
 }
 
 void loop() {
-  // Keep connections alive
+  // WiFi reconnection
   if (WiFi.status() != WL_CONNECTED) {
-    // Optional: Reconnect logic here
+    if (millis() - lastReconnect > 10000) {
+      lastReconnect = millis();
+      Serial.println("[WiFi] Reconnecting...");
+      WiFi.disconnect();
+      WiFi.begin(ssid, password);
+    }
   }
 
   webSocket.loop();
   server.handleClient();
-
   checkTimers();
 
-  // Periodic Sensor Read (every 2 seconds)
+  // Sensor read every 2 seconds
   if (millis() - lastSensorRead > 2000) {
     lastSensorRead = millis();
 
-    // Read DHT
     float t = dht.readTemperature();
     float h = dht.readHumidity();
+    if (isnan(t)) t = 0.0;
+    if (isnan(h)) h = 0.0;
 
-    // Convert float to int safe for display
-    if (isnan(t))
-      t = 0.0;
-    if (isnan(h))
-      h = 0.0;
-
-    // Update OLED
     display.clearDisplay();
     display.setCursor(0, 0);
     display.printf("WiFi: %s\n", WiFi.localIP().toString().c_str());
@@ -202,16 +233,75 @@ void loop() {
     display.printf("Hum:  %.1f %%\n", h);
 
     int activeCount = 0;
-    for (bool s : valveStates)
-      if (s)
-        activeCount++;
-    display.printf("Active Valves: %d", activeCount);
-
+    for (int i = 0; i < NUM_ZONES; i++)
+      if (valveStates[i]) activeCount++;
+    display.printf("Active: %d/%d", activeCount, NUM_ZONES);
+    if (rainExpected) display.printf("\nRain: SKIP");
     display.display();
+
+    broadcastSensorData();
+  }
+
+  // Auto watering check
+  if (autoWateringEnabled && millis() - lastAutoCheck > autoCheckInterval) {
+    lastAutoCheck = millis();
+    autoWateringCheck();
   }
 }
 
-// --- HARDWARE FUNCTIONS ---
+// --- RELAY CONTROL ---
+void setRelay(int zone, bool state) {
+  if (zone < 0 || zone >= NUM_ZONES) return;
+
+  #ifdef USE_GPIO_EXPANDER
+    mcp.digitalWrite(zone, state ? LOW : HIGH);
+  #else
+    if (zone < NUM_DIRECT_RELAYS) {
+      digitalWrite(relayPins[zone], state ? LOW : HIGH);
+    } else {
+      Serial.printf("[Relay] Zone %d needs MCP23017\n", zone);
+      return;
+    }
+  #endif
+
+  valveStates[zone] = state;
+}
+
+// --- AUTO WATERING ---
+void autoWateringCheck() {
+  if (rainExpected) {
+    Serial.println("[Auto] Rain expected, skipping");
+    return;
+  }
+
+  for (int i = 0; i < NUM_ZONES; i++) {
+    if (valveStates[i]) continue;
+    if (i >= NUM_SOIL_SENSORS) continue;
+
+    int rawValue = analogRead(soilPins[i]);
+    int moisturePercent = map(rawValue, 4095, 0, 0, 100);
+    moisturePercent = constrain(moisturePercent, 0, 100);
+
+    if (moisturePercent < plantConfigs[i].minMoisture) {
+      Serial.printf("[Auto] Zone %d (%s): %d%% < %d%%, watering %.1f min\n",
+                    i, plantConfigs[i].name, moisturePercent,
+                    plantConfigs[i].minMoisture, plantConfigs[i].waterMins);
+      startWatering(i, plantConfigs[i].waterMins);
+
+      // Alert dashboard
+      DynamicJsonDocument alert(256);
+      alert["type"] = "alert";
+      alert["level"] = "info";
+      char msg[100];
+      snprintf(msg, sizeof(msg), "ري تلقائي: %s (%d%%)",
+               plantConfigs[i].name, moisturePercent);
+      alert["message"] = msg;
+      String alertStr;
+      serializeJson(alert, alertStr);
+      webSocket.broadcastTXT(alertStr);
+    }
+  }
+}
 
 void setupCamera() {
   camera_config_t config;
@@ -237,7 +327,7 @@ void setupCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size = FRAMESIZE_UXGA; // High Quality
+    config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
   } else {
@@ -248,7 +338,7 @@ void setupCamera() {
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("Camera Init Failed: 0x%x\n", err);
+    Serial.printf("[Error] Camera Init: 0x%x\n", err);
   }
 }
 
@@ -261,48 +351,35 @@ void setupWiFi() {
     attempts++;
   }
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi Connected");
+    Serial.printf("\n[WiFi] Connected: %s\n", WiFi.localIP().toString().c_str());
   } else {
-    Serial.println("\nWiFi Timed Out (Check Credentials)");
+    Serial.println("\n[WiFi] Connection Failed");
   }
 }
 
 void checkTimers() {
   bool anyRunning = false;
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < NUM_ZONES; i++) {
     if (valveStates[i]) {
       anyRunning = true;
-      if (millis() > wateringTimers[i]) {
-        // Stop Valve
-        int relayIndex = i % 9;                    // Safety mapping
-        digitalWrite(relayPins[relayIndex], HIGH); // OFF
-        valveStates[i] = false;
+      if (wateringTimers[i] > 0 && millis() > wateringTimers[i]) {
+        setRelay(i, false);
         wateringTimers[i] = 0;
+        Serial.printf("[Timer] Zone %d stopped\n", i);
         broadcastUpdate();
       }
     }
   }
-  // Master Pump Logic: If no valve is running, turn off pump
   if (!anyRunning) {
-    digitalWrite(pumpPin, HIGH); // OFF
+    digitalWrite(pumpPin, HIGH);
   }
 }
 
 void startWatering(int zone, float durationMins) {
-  if (zone < 0 || zone >= 10)
-    return;
-
-  // 1. Turn on Relay
-  int relayIndex = zone % 9;
-  digitalWrite(relayPins[relayIndex], LOW); // ON
-
-  // 2. Turn on Pump
-  digitalWrite(pumpPin, LOW); // ON
-
-  // 3. Set Timer
-  valveStates[zone] = true;
+  if (zone < 0 || zone >= NUM_ZONES) return;
+  setRelay(zone, true);
+  digitalWrite(pumpPin, LOW);
   wateringTimers[zone] = millis() + (unsigned long)(durationMins * 60000UL);
-
   broadcastUpdate();
 }
 
@@ -311,21 +388,43 @@ void sendSensorData() {
   doc["type"] = "data";
   doc["t"] = dht.readTemperature();
   doc["h"] = dht.readHumidity();
+  doc["freeHeap"] = ESP.getFreeHeap();
+  doc["uptime"] = millis() / 1000;
+  doc["wifiRSSI"] = WiFi.RSSI();
 
   JsonArray soils = doc.createNestedArray("soils");
-  for (int i = 0; i < 6; i++) {
-    // Note: analogRead might conflict with WiFi on ADC2.
-    // If you see '0' or random noise, this is why.
+  for (int i = 0; i < NUM_SOIL_SENSORS; i++)
     soils.add(analogRead(soilPins[i]));
-  }
 
   JsonArray valves = doc.createNestedArray("valves");
-  for (bool s : valveStates)
-    valves.add(s);
+  for (int i = 0; i < NUM_ZONES; i++)
+    valves.add(valveStates[i]);
 
   String out;
   serializeJson(doc, out);
   server.send(200, "application/json", out);
+}
+
+void broadcastSensorData() {
+  DynamicJsonDocument doc(1024);
+  doc["type"] = "data";
+  doc["t"] = dht.readTemperature();
+  doc["h"] = dht.readHumidity();
+  doc["freeHeap"] = ESP.getFreeHeap();
+  doc["uptime"] = millis() / 1000;
+  doc["wifiRSSI"] = WiFi.RSSI();
+
+  JsonArray soils = doc.createNestedArray("soils");
+  for (int i = 0; i < NUM_SOIL_SENSORS; i++)
+    soils.add(analogRead(soilPins[i]));
+
+  JsonArray valves = doc.createNestedArray("valves");
+  for (int i = 0; i < NUM_ZONES; i++)
+    valves.add(valveStates[i]);
+
+  String msg;
+  serializeJson(doc, msg);
+  webSocket.broadcastTXT(msg);
 }
 
 void handleControl() {
@@ -337,29 +436,78 @@ void handleControl() {
   int state = server.arg("state").toInt();
 
   if (state == 1) {
-    startWatering(zone, 1.0); // Default 1 min
+    float dur = server.hasArg("duration")
+                    ? server.arg("duration").toFloat()
+                    : plantConfigs[constrain(zone, 0, NUM_ZONES - 1)].waterMins;
+    startWatering(zone, dur);
   } else {
-    // Manually Stop
-    valveStates[zone] = false;
-    int relayIndex = zone % 9;
-    digitalWrite(relayPins[relayIndex], HIGH); // OFF
+    setRelay(zone, false);
+    wateringTimers[zone] = 0;
     broadcastUpdate();
   }
   server.send(200, "text/plain", "OK");
 }
 
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload,
-                    size_t length) {
-  // Handle incoming websocket messages if needed
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+  switch (type) {
+  case WStype_DISCONNECTED:
+    Serial.printf("[WS] Client %u disconnected\n", num);
+    break;
+
+  case WStype_CONNECTED:
+    Serial.printf("[WS] Client %u connected\n", num);
+    broadcastSensorData();
+    broadcastUpdate();
+    break;
+
+  case WStype_TEXT: {
+    DynamicJsonDocument doc(256);
+    if (deserializeJson(doc, payload, length)) break;
+
+    String cmd = doc["cmd"].as<String>();
+
+    if (cmd == "water") {
+      int z = doc["zone"] | -1;
+      if (z >= 0 && z < NUM_ZONES) {
+        float mins = doc["duration"] | plantConfigs[z].waterMins;
+        startWatering(z, mins);
+      }
+    } else if (cmd == "stop") {
+      int z = doc["zone"] | -1;
+      if (z >= 0 && z < NUM_ZONES) {
+        setRelay(z, false);
+        wateringTimers[z] = 0;
+        broadcastUpdate();
+      }
+    } else if (cmd == "getData") {
+      broadcastSensorData();
+    } else if (cmd == "pumpOn") {
+      digitalWrite(pumpPin, LOW);
+      broadcastUpdate();
+    } else if (cmd == "pumpOff") {
+      digitalWrite(pumpPin, HIGH);
+      broadcastUpdate();
+    } else if (cmd == "setRain") {
+      rainExpected = doc["value"] | false;
+      Serial.printf("[Weather] Rain: %s\n", rainExpected ? "YES" : "NO");
+    }
+    break;
+  }
+  default:
+    break;
+  }
 }
 
 void broadcastUpdate() {
-  // Notify all dashboard clients of change
   DynamicJsonDocument doc(512);
   doc["type"] = "update";
+
   JsonArray valves = doc.createNestedArray("valves");
-  for (bool s : valveStates)
-    valves.add(s);
+  for (int i = 0; i < NUM_ZONES; i++)
+    valves.add(valveStates[i]);
+
+  doc["pumpOn"] = (digitalRead(pumpPin) == LOW);
+  doc["rainExpected"] = rainExpected;
 
   String msg;
   serializeJson(doc, msg);
