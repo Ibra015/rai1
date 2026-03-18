@@ -359,18 +359,331 @@ function formatUptime(seconds) {
     return `${h} ساعة ${m} دقيقة`;
 }
 
+// ====== المؤشرات الدائرية (Circular Gauges) ======
+function updateGauge(id, value, max) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const circumference = 88; // 2 * PI * 14
+    const offset = circumference - (value / max) * circumference;
+    el.style.strokeDashoffset = Math.max(0, offset);
+}
+
+function updateAllGauges() {
+    if (typeof PLANTS === 'undefined') return;
+
+    // حساب متوسط الرطوبة
+    const avgM = Math.round(PLANTS.reduce((s, p) => s + p.m, 0) / PLANTS.length);
+
+    // تحديث بيانات الطقس من DOM
+    const tempText = document.getElementById('tempKpi')?.textContent || '--';
+    const humidText = document.getElementById('humidKpi')?.textContent || '--';
+    const temp = parseFloat(tempText) || 0;
+    const humid = parseFloat(humidText) || 0;
+
+    updateGauge('tempGauge', Math.min(temp, 50), 50);
+    updateGauge('humidGauge', humid, 100);
+    updateGauge('flowGauge', avgM, 100);
+
+    // استهلاك المياه اليوم
+    const todayUsage = getWaterUsageToday();
+    const waterEl = document.getElementById('waterUsageKpi');
+    if (waterEl) waterEl.textContent = `${todayUsage} L`;
+    updateGauge('waterGauge', Math.min(todayUsage, 200), 200);
+}
+
+// ====== استهلاك المياه ======
+function recordWaterUsage(liters) {
+    const key = 'waterUsage';
+    const data = JSON.parse(localStorage.getItem(key) || '[]');
+    data.push({ ts: Date.now(), l: liters });
+    // احتفظ بـ 30 يوم
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    localStorage.setItem(key, JSON.stringify(data.filter(r => Date.now() - r.ts < thirtyDays)));
+}
+
+function getWaterUsageToday() {
+    const data = JSON.parse(localStorage.getItem('waterUsage') || '[]');
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    return Math.round(data.filter(r => r.ts >= todayStart.getTime()).reduce((s, r) => s + r.l, 0));
+}
+
+function renderWaterUsageChart() {
+    const el = document.getElementById('waterUsageChart');
+    if (!el) return;
+
+    const data = JSON.parse(localStorage.getItem('waterUsage') || '[]');
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        d.setHours(0, 0, 0, 0);
+        const nextDay = new Date(d);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const dayUsage = data.filter(r => r.ts >= d.getTime() && r.ts < nextDay.getTime()).reduce((s, r) => s + r.l, 0);
+        days.push({
+            label: d.toLocaleDateString('ar-EG', { weekday: 'short' }),
+            value: Math.round(dayUsage)
+        });
+    }
+
+    new Chart(el, {
+        type: 'bar',
+        data: {
+            labels: days.map(d => d.label),
+            datasets: [{
+                label: 'استهلاك المياه (لتر)',
+                data: days.map(d => d.value),
+                backgroundColor: 'rgba(14, 165, 233, 0.6)',
+                borderColor: '#0ea5e9',
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { ticks: { color: '#64748b' }, grid: { color: '#f1f5f9' } },
+                x: { ticks: { color: '#64748b' }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+// ====== خريطة المزرعة ======
+function buildFarmLayout() {
+    const grid = document.getElementById('farmGrid');
+    if (!grid || typeof PLANTS === 'undefined') return;
+
+    grid.innerHTML = '';
+    PLANTS.forEach((p, i) => {
+        const zone = document.createElement('div');
+        zone.className = 'farm-zone';
+        zone.id = `farm-zone-${i}`;
+
+        const color = p.m < 40 ? 'danger' : '';
+        if (color) zone.classList.add(color);
+
+        const moistureColor = p.m < 40 ? 'var(--danger)' : (p.m > 70 ? 'var(--success)' : 'var(--warning)');
+
+        zone.innerHTML = `
+            <img class="farm-zone-img" src="${p.i}" alt="${p.a}" onerror="this.style.display='none'">
+            <div class="farm-zone-name">${p.a}</div>
+            <div class="farm-zone-moisture" style="color:${moistureColor}" id="farm-moisture-${i}">${p.m}%</div>
+        `;
+
+        zone.onclick = () => {
+            if (typeof toggleZone === 'function') {
+                const toggle = document.getElementById(`zone-toggle-${i}`);
+                if (toggle) {
+                    toggle.checked = !toggle.checked;
+                    toggleZone(i, toggle.checked);
+                }
+            }
+        };
+
+        grid.appendChild(zone);
+    });
+}
+
+function updateFarmZone(zoneIndex, moisture, isWatering) {
+    const zone = document.getElementById(`farm-zone-${zoneIndex}`);
+    const moistureEl = document.getElementById(`farm-moisture-${zoneIndex}`);
+    if (!zone || !moistureEl) return;
+
+    const color = moisture < 40 ? 'var(--danger)' : (moisture > 70 ? 'var(--success)' : 'var(--warning)');
+    moistureEl.textContent = `${moisture}%`;
+    moistureEl.style.color = color;
+
+    zone.classList.toggle('danger', moisture < 40);
+    zone.classList.toggle('active', isWatering);
+}
+
+// ====== سجل الأحداث ======
+function logEvent(title, type = 'info') {
+    const events = JSON.parse(localStorage.getItem('eventLog') || '[]');
+    events.unshift({ title, type, ts: Date.now() });
+    // احتفظ بـ 200 حدث
+    if (events.length > 200) events.length = 200;
+    localStorage.setItem('eventLog', JSON.stringify(events));
+    renderEventLog();
+}
+
+function renderEventLog() {
+    const container = document.getElementById('eventLogList');
+    if (!container) return;
+
+    const events = JSON.parse(localStorage.getItem('eventLog') || '[]');
+    if (events.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-sub);padding:40px;">لا توجد أحداث بعد</p>';
+        return;
+    }
+
+    container.innerHTML = events.slice(0, 50).map(e => {
+        const icons = { water: 'water_drop', alert: 'warning', info: 'info', success: 'check_circle' };
+        const time = new Date(e.ts).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+        return `
+            <div class="event-item">
+                <div class="event-icon ${e.type}"><span class="material-icons-round">${icons[e.type] || 'info'}</span></div>
+                <div class="event-text">
+                    <div class="event-title">${e.title}</div>
+                    <div class="event-time">${time}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function clearEventLog() {
+    if (confirm('حذف سجل الأحداث؟')) {
+        localStorage.removeItem('eventLog');
+        renderEventLog();
+        showNotification('تم مسح السجل', 'info');
+    }
+}
+
+// ====== عتبات النباتات ======
+function renderThresholdEditor() {
+    const container = document.getElementById('thresholdList');
+    if (!container || typeof PLANTS === 'undefined') return;
+
+    container.innerHTML = PLANTS.map((p, i) => `
+        <div class="threshold-card">
+            <img class="threshold-img" src="${p.i}" alt="${p.a}" onerror="this.style.display='none'">
+            <div class="threshold-info">
+                <div class="threshold-name">${p.a} (${p.n})</div>
+                <div class="threshold-range">
+                    <span id="threshMin-${i}">${p.minMoisture}%</span>
+                    <input type="range" min="5" max="95" value="${p.minMoisture}"
+                        oninput="updateThreshold(${i}, 'min', this.value)">
+                    <input type="range" min="5" max="95" value="${p.maxMoisture}"
+                        oninput="updateThreshold(${i}, 'max', this.value)">
+                    <span id="threshMax-${i}">${p.maxMoisture}%</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateThreshold(index, type, value) {
+    if (typeof PLANTS === 'undefined') return;
+    value = parseInt(value);
+
+    if (type === 'min') {
+        PLANTS[index].minMoisture = value;
+        const el = document.getElementById(`threshMin-${index}`);
+        if (el) el.textContent = `${value}%`;
+    } else {
+        PLANTS[index].maxMoisture = value;
+        const el = document.getElementById(`threshMax-${index}`);
+        if (el) el.textContent = `${value}%`;
+    }
+
+    localStorage.setItem('plantThresholds', JSON.stringify(
+        PLANTS.map(p => ({ min: p.minMoisture, max: p.maxMoisture }))
+    ));
+}
+
+function loadSavedThresholds() {
+    const saved = JSON.parse(localStorage.getItem('plantThresholds') || '[]');
+    if (saved.length > 0 && typeof PLANTS !== 'undefined') {
+        saved.forEach((s, i) => {
+            if (PLANTS[i]) {
+                PLANTS[i].minMoisture = s.min;
+                PLANTS[i].maxMoisture = s.max;
+            }
+        });
+    }
+}
+
+// ====== تنبيهات ذكية ======
+function generateSmartAlerts() {
+    const container = document.getElementById('smartAlerts');
+    if (!container || typeof PLANTS === 'undefined') return;
+
+    const alerts = [];
+
+    PLANTS.forEach((p, i) => {
+        if (p.m < p.minMoisture) {
+            alerts.push({ text: `${p.a} (المنطقة ${i + 1}) رطوبتها ${p.m}% — تحت الحد الأدنى ${p.minMoisture}%`, type: '', icon: '🚨' });
+        } else if (p.m < p.minMoisture + 10) {
+            alerts.push({ text: `${p.a} (المنطقة ${i + 1}) رطوبتها ${p.m}% — قريبة من الحد الأدنى`, type: 'warning', icon: '⚠️' });
+        }
+    });
+
+    if (typeof isRainExpected === 'function' && isRainExpected()) {
+        alerts.push({ text: 'أمطار متوقعة — الري التلقائي معلّق', type: 'success', icon: '🌧️' });
+    }
+
+    if (alerts.length === 0) {
+        alerts.push({ text: 'جميع المناطق بحالة جيدة', type: 'success', icon: '✅' });
+    }
+
+    container.innerHTML = alerts.map(a =>
+        `<div class="smart-alert ${a.type}"><span class="smart-alert-icon">${a.icon}</span><span class="smart-alert-text">${a.text}</span></div>`
+    ).join('');
+}
+
+// ====== ملخص التقارير ======
+function updateReportSummary() {
+    if (typeof PLANTS === 'undefined') return;
+
+    const avgM = Math.round(PLANTS.reduce((s, p) => s + p.m, 0) / PLANTS.length);
+    const lowCount = PLANTS.filter(p => p.m < p.minMoisture).length;
+    const todayUsage = getWaterUsageToday();
+    const events = JSON.parse(localStorage.getItem('eventLog') || '[]');
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEvents = events.filter(e => e.ts >= todayStart.getTime() && e.type === 'water').length;
+
+    const update = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    update('totalWaterUsed', `${todayUsage} L`);
+    update('totalWateringEvents', todayEvents);
+    update('avgMoisture', `${avgM}%`);
+    update('lowMoistureCount', lowCount);
+}
+
 // ====== تهيئة عند التحميل ======
 document.addEventListener('DOMContentLoaded', () => {
+    loadSavedThresholds();
     buildZoneCards();
+    buildFarmLayout();
     initChart();
     renderHistoryChart();
+    renderWaterUsageChart();
+    renderEventLog();
+    renderThresholdEditor();
+    generateSmartAlerts();
+    updateReportSummary();
     updateConnectionStatus(navigator.onLine);
-
-    // طلب إذن الإشعارات
     requestNotifications();
+
+    // تحديث المؤشرات الدائرية كل 5 ثوانٍ
+    setInterval(() => {
+        updateAllGauges();
+        generateSmartAlerts();
+        updateReportSummary();
+    }, 5000);
+
+    // تحديث أولي
+    setTimeout(updateAllGauges, 1000);
 });
 
-// إعادة رسم الرسم البياني عند تغيير الثيم
+// تكامل مع نظام الأحداث (Override toggleZone)
+const _origToggleZone = typeof toggleZone !== 'undefined' ? toggleZone : null;
+if (_origToggleZone) {
+    window.toggleZone = function(zone, state) {
+        _origToggleZone(zone, state);
+        const plantName = PLANTS[zone] ? PLANTS[zone].a : `منطقة ${zone + 1}`;
+        logEvent(state ? `بدء ري: ${plantName}` : `إيقاف ري: ${plantName}`, state ? 'water' : 'info');
+        if (state) recordWaterUsage(PLANTS[zone] ? PLANTS[zone].waterDuration * 15 : 45);
+        updateFarmZone(zone, PLANTS[zone]?.m || 0, state);
+    };
+}
+
+// إعادة رسم عند تغيير الثيم
 const _origToggleTheme = toggleTheme;
 toggleTheme = function () {
     _origToggleTheme();

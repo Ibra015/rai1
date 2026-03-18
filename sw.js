@@ -1,6 +1,6 @@
 // Agro-Omni Service Worker v2.0
 
-const CACHE_NAME = 'agro-omni-v2';
+const CACHE_NAME = 'agro-omni-v3';
 const ASSETS_TO_CACHE = [
     './dashboard_simulation.html',
     './css/styles.css',

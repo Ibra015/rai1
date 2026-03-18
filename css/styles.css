@@ -621,6 +621,558 @@ input:checked+.slider:before {
     color: white;
 }
 
+/* ====== مؤشرات دائرية (Circular Gauges) ====== */
+.gauge-container {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 8px;
+}
+
+.gauge-svg {
+    transform: rotate(-90deg);
+    width: 90px;
+    height: 90px;
+}
+
+.gauge-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 8;
+}
+
+.gauge-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease;
+}
+
+.gauge-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+/* ====== KPI محسّن ====== */
+.kpi-card-v2 {
+    background: var(--panel);
+    padding: 20px 15px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: var(--card-shadow);
+    text-align: center;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card-v2::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+}
+
+.kpi-card-v2.temp::before { background: #f59e0b; }
+.kpi-card-v2.humid::before { background: #3b82f6; }
+.kpi-card-v2.solar::before { background: #eab308; }
+.kpi-card-v2.flow::before { background: #10b981; }
+.kpi-card-v2.water::before { background: #0ea5e9; }
+
+.kpi-card-v2:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.1);
+}
+
+.kpi-card-v2 .kpi-label {
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+/* ====== استهلاك المياه ====== */
+.water-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.water-stat-card {
+    background: var(--panel);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+.water-stat-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+.water-stat-label {
+    font-size: 0.8rem;
+    color: var(--text-sub);
+    margin-top: 4px;
+}
+
+.water-stat-change {
+    font-size: 0.75rem;
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.water-stat-change.up { color: var(--danger); }
+.water-stat-change.down { color: var(--success); }
+
+/* ====== Modal ====== */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay.active {
+    display: flex;
+    animation: fadeIn 0.3s;
+}
+
+.modal-content {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+    font-size: 1.2rem;
+    color: var(--text-main);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-sub);
+    font-size: 1.5rem;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: var(--border);
+    color: var(--danger);
+}
+
+/* ====== نماذج الإعدادات ====== */
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.form-input, .form-select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text-main);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.form-input:focus, .form-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.form-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Cairo', sans-serif;
+    margin-top: 10px;
+}
+
+.form-btn:hover {
+    background: #4338ca;
+    transform: translateY(-2px);
+}
+
+.form-btn.secondary {
+    background: var(--border);
+    color: var(--text-main);
+}
+
+.form-btn.danger {
+    background: var(--danger);
+}
+
+/* ====== الإعدادات المتقدمة ====== */
+.settings-section {
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: var(--card-shadow);
+}
+
+.settings-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.settings-row-label {
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+.settings-row-desc {
+    font-size: 0.8rem;
+    color: var(--text-sub);
+}
+
+/* ====== عتبات النباتات (Plant Thresholds) ====== */
+.threshold-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+
+.threshold-card:hover {
+    border-color: var(--accent);
+}
+
+.threshold-img {
+    width: 45px;
+    height: 45px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.threshold-info {
+    flex: 1;
+}
+
+.threshold-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.threshold-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.threshold-range input[type="range"] {
+    flex: 1;
+    height: 4px;
+    accent-color: var(--primary);
+}
+
+.threshold-range span {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    min-width: 30px;
+    text-align: center;
+}
+
+/* ====== سجل الأحداث ====== */
+.event-log {
+    max-height: 500px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s;
+}
+
+.event-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+
+.event-icon.water { background: rgba(14, 165, 233, 0.1); color: var(--accent); }
+.event-icon.alert { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.event-icon.info { background: rgba(79, 70, 229, 0.1); color: var(--primary); }
+.event-icon.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+
+.event-text {
+    flex: 1;
+}
+
+.event-title {
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: 0.9rem;
+}
+
+.event-time {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    margin-top: 2px;
+}
+
+/* ====== خريطة المزرعة ====== */
+.farm-layout {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    min-height: 400px;
+    box-shadow: var(--card-shadow);
+}
+
+.farm-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 10px;
+    padding: 15px;
+}
+
+.farm-zone {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 15px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.farm-zone:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.farm-zone.active {
+    border-color: var(--accent);
+    background: rgba(14, 165, 233, 0.05);
+}
+
+.farm-zone.active::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1s infinite;
+}
+
+.farm-zone.danger {
+    border-color: var(--danger);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.farm-zone-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.farm-zone-name {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-main);
+}
+
+.farm-zone-moisture {
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.farm-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.farm-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-sub);
+}
+
+.farm-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+/* ====== تقارير محسّنة ====== */
+.report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.report-summary-card {
+    background: var(--panel);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--card-shadow);
+}
+
+.report-summary-icon {
+    font-size: 2rem;
+    margin-bottom: 6px;
+}
+
+.report-summary-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.report-summary-label {
+    font-size: 0.8rem;
+    color: var(--text-sub);
+}
+
+/* ====== Smart Alerts ====== */
+.smart-alert {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.smart-alert.warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.02));
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.smart-alert.success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.smart-alert-icon {
+    font-size: 1.5rem;
+}
+
+.smart-alert-text {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
 /* موبايل */
 @media (max-width: 900px) {
     body {
